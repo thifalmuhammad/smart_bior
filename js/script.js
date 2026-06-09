@@ -4,8 +4,6 @@ const CONFIG = {
     DATA_HISTORY_LENGTH: 100,
     SENSOR_RANGES: {
         temperature: { min: 20, max: 40, ideal: [25, 35] },
-        humidity: { min: 30, max: 90, ideal: [60, 80] },
-        pH: { min: 4, max: 10, ideal: [6.5, 7.5] },
         turbidity: { min: 0, max: 100, ideal: [0, 10] }
     }
 };
@@ -25,8 +23,6 @@ class DummyDataGenerator {
     constructor() {
         this.lastValues = {
             temperature: 28,
-            humidity: 65,
-            pH: 7.0,
             turbidity: 5
         };
     }
@@ -50,20 +46,6 @@ class DummyDataGenerator {
             1
         );
 
-        this.lastValues.humidity = this.generateRandomWalk(
-            this.lastValues.humidity,
-            CONFIG.SENSOR_RANGES.humidity.min,
-            CONFIG.SENSOR_RANGES.humidity.max,
-            2
-        );
-
-        this.lastValues.pH = this.generateRandomWalk(
-            this.lastValues.pH,
-            CONFIG.SENSOR_RANGES.pH.min,
-            CONFIG.SENSOR_RANGES.pH.max,
-            0.1
-        );
-
         this.lastValues.turbidity = this.generateRandomWalk(
             this.lastValues.turbidity,
             CONFIG.SENSOR_RANGES.turbidity.min,
@@ -74,8 +56,6 @@ class DummyDataGenerator {
         return {
             timestamp: new Date(),
             temperature: this.lastValues.temperature,
-            humidity: this.lastValues.humidity,
-            pH: this.lastValues.pH,
             turbidity: this.lastValues.turbidity
         };
     }
@@ -88,8 +68,8 @@ function getTimestamp() {
     const now = new Date();
     return now.toLocaleTimeString('id-ID', { 
         hour: '2-digit', 
-        minute: '2-digit', 
-        second: '2-digit' 
+        minute: '2-digit',
+        hour12: false
     });
 }
 
@@ -97,8 +77,8 @@ function formatTime(date) {
     if (typeof date === 'string') date = new Date(date);
     return date.toLocaleTimeString('id-ID', { 
         hour: '2-digit', 
-        minute: '2-digit', 
-        second: '2-digit' 
+        minute: '2-digit',
+        hour12: false
     });
 }
 
@@ -151,13 +131,13 @@ function createSparkline(elementId, data) {
     const container = document.getElementById(elementId);
     if (!container || data.length === 0) return;
 
-    container.innerHTML = '';
-
     const width = container.clientWidth;
     const height = container.clientHeight;
-    const padding = 5;
+    const padding = { top: 18, right: 12, bottom: 30, left: 38 };
 
     if (data.length < 2) return;
+
+    container.innerHTML = '';
 
     // Create SVG
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -172,54 +152,52 @@ function createSparkline(elementId, data) {
     const range = max - min || 1;
 
     // Create path
-    let pathData = 'M ';
+    let pathData = '';
     data.forEach((value, index) => {
-        const x = (index / (data.length - 1)) * (width - 2 * padding) + padding;
-        const y = height - ((value - min) / range) * (height - 2 * padding) - padding;
+        const x = (index / (data.length - 1)) * (width - padding.left - padding.right) + padding.left;
+        const y = height - padding.bottom - ((value - min) / range) * (height - padding.top - padding.bottom);
         pathData += `${x},${y} `;
     });
 
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
     path.setAttribute('points', pathData);
     path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', 'url(#sparklineGradient)');
-    path.setAttribute('stroke-width', '2');
+    path.setAttribute('stroke', '#16a34a');
+    path.setAttribute('stroke-width', '3');
     path.setAttribute('stroke-linecap', 'round');
     path.setAttribute('stroke-linejoin', 'round');
 
-    // Create gradient
-    const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-    const gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
-    gradient.setAttribute('id', 'sparklineGradient');
-    gradient.setAttribute('x1', '0%');
-    gradient.setAttribute('y1', '0%');
-    gradient.setAttribute('x2', '0%');
-    gradient.setAttribute('y2', '100%');
-
-    const stop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
-    stop1.setAttribute('offset', '0%');
-    stop1.setAttribute('stop-color', '#ffffff');
-    stop1.setAttribute('stop-opacity', '0.8');
-
-    const stop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
-    stop2.setAttribute('offset', '100%');
-    stop2.setAttribute('stop-color', '#888888');
-    stop2.setAttribute('stop-opacity', '0.3');
-
-    gradient.appendChild(stop1);
-    gradient.appendChild(stop2);
-    defs.appendChild(gradient);
-
-    svg.appendChild(defs);
     svg.appendChild(path);
     container.appendChild(svg);
+
+    const timestamps = state.dataHistory.slice(-data.length).map(item => item.timestamp);
+    addChartLabel(container, 'chart-label-y-max', max.toFixed(2));
+    addChartLabel(container, 'chart-label-y-min', min.toFixed(2));
+    addChartLabel(container, 'chart-label-x-start', formatTime(timestamps[0]));
+    addChartLabel(container, 'chart-label-x-end', formatTime(timestamps[timestamps.length - 1]));
+}
+
+function addChartLabel(container, className, text) {
+    const label = document.createElement('span');
+    label.className = `chart-label ${className}`;
+    label.textContent = text;
+    container.appendChild(label);
+}
+
+function resetCharts() {
+    ['tempChart', 'turbidityChart'].forEach(chartId => {
+        const chart = document.getElementById(chartId);
+        if (chart) {
+            chart.innerHTML = '<span class="chart-empty">Menunggu data...</span>';
+        }
+    });
 }
 
 function updateDataTable() {
     const tableBody = document.getElementById('dataTableBody');
     
     if (state.dataHistory.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="5" class="no-data">Tunggu data masuk...</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="3" class="no-data">Tunggu data masuk...</td></tr>';
         return;
     }
 
@@ -230,8 +208,6 @@ function updateDataTable() {
         <tr>
             <td>${formatTime(data.timestamp)}</td>
             <td>${data.temperature.toFixed(2)}</td>
-            <td>${data.humidity.toFixed(2)}</td>
-            <td>${data.pH.toFixed(2)}</td>
             <td>${data.turbidity.toFixed(2)}</td>
         </tr>
     `).join('');
@@ -287,8 +263,6 @@ function processNewData(data) {
 
     // Update UI
     updateSensorCard('temp', data.temperature.toFixed(2), 'temperature');
-    updateSensorCard('humidity', data.humidity.toFixed(2), 'humidity');
-    updateSensorCard('ph', data.pH.toFixed(2), 'pH');
     updateSensorCard('turbidity', data.turbidity.toFixed(2), 'turbidity');
     
     updateDataTable();
@@ -385,11 +359,12 @@ document.addEventListener('DOMContentLoaded', function() {
             localStorage.removeItem('sensorHistory');
             
             // Reset UI
-            ['temp', 'humidity', 'ph', 'turbidity'].forEach(sensorName => {
+            ['temp', 'turbidity'].forEach(sensorName => {
                 const valueElement = document.getElementById(`${sensorName}Value`);
                 if (valueElement) valueElement.textContent = '--';
             });
             
+            resetCharts();
             updateDataTable();
             updateSystemStatus();
             
@@ -423,8 +398,6 @@ function loadDataFromStorage() {
                 state.currentData = lastData;
                 
                 updateSensorCard('temp', lastData.temperature.toFixed(2), 'temperature');
-                updateSensorCard('humidity', lastData.humidity.toFixed(2), 'humidity');
-                updateSensorCard('ph', lastData.pH.toFixed(2), 'pH');
                 updateSensorCard('turbidity', lastData.turbidity.toFixed(2), 'turbidity');
                 
                 updateDataTable();

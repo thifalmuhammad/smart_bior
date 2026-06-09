@@ -35,53 +35,54 @@
                         <span id="tempStatus" class="status-badge">-</span>
                         <span id="tempRange" class="range-text">Min: --, Max: --</span>
                     </div>
-                    <div class="sparkline" id="tempChart"></div>
                 </div>
 
-                <!-- Humidity Card -->
+                <!-- Optical Density Card -->
                 <div class="sensor-card">
                     <div class="sensor-header">
-                        <h3>💧 Kelembaban (Humidity)</h3>
-                        <span class="unit">%</span>
-                    </div>
-                    <div class="sensor-value" id="humidityValue">--</div>
-                    <div class="sensor-status">
-                        <span id="humidityStatus" class="status-badge">-</span>
-                        <span id="humidityRange" class="range-text">Min: --, Max: --</span>
-                    </div>
-                    <div class="sparkline" id="humidityChart"></div>
-                </div>
-
-                <!-- pH Card -->
-                <div class="sensor-card">
-                    <div class="sensor-header">
-                        <h3>⚗️ pH Level</h3>
-                        <span class="unit">pH</span>
-                    </div>
-                    <div class="sensor-value" id="phValue">--</div>
-                    <div class="sensor-status">
-                        <span id="phStatus" class="status-badge">-</span>
-                        <span id="phRange" class="range-text">Min: --, Max: --</span>
-                    </div>
-                    <div class="sparkline" id="phChart"></div>
-                </div>
-
-                <!-- Turbidity Card -->
-                <div class="sensor-card">
-                    <div class="sensor-header">
-                        <h3>🔍 Kekeruhan (Turbidity)</h3>
-                        <span class="unit">NTU</span>
+                        <h3>🔍 Optical Density</h3>
+                        <span class="unit">OD</span>
                     </div>
                     <div class="sensor-value" id="turbidityValue">--</div>
                     <div class="sensor-status">
                         <span id="turbidityStatus" class="status-badge">-</span>
                         <span id="turbidityRange" class="range-text">Min: --, Max: --</span>
                     </div>
-                    <div class="sparkline" id="turbidityChart"></div>
                 </div>
             </div>
 
-            <!-- Row 2: Control & Status -->
+            <!-- Row 2: Sensor Charts -->
+            <div class="chart-grid">
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>Riwayat Suhu</h3>
+                        <span class="unit">°C</span>
+                    </div>
+                    <div class="sparkline" id="tempChart">
+                        <span class="chart-empty">Menunggu data...</span>
+                    </div>
+                    <div class="chart-legend">
+                        <span class="legend-line"></span>
+                        <span>Suhu (°C)</span>
+                    </div>
+                </div>
+
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>Riwayat Optical Density</h3>
+                        <span class="unit">OD</span>
+                    </div>
+                    <div class="sparkline" id="turbidityChart">
+                        <span class="chart-empty">Menunggu data...</span>
+                    </div>
+                    <div class="chart-legend">
+                        <span class="legend-line"></span>
+                        <span>Optical Density (OD)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Row 3: Control & Status -->
             <div class="control-section">
                 <div class="control-panel">
                     <h3>⚙️ Kontrol Sistem</h3>
@@ -116,7 +117,7 @@
                 </div>
             </div>
 
-            <!-- Row 3: Data Log -->
+            <!-- Row 4: Data Log -->
             <div class="data-log-section">
                 <h3>📋 Data Log (Terbaru)</h3>
                 <div class="data-table-container">
@@ -125,14 +126,12 @@
                             <tr>
                                 <th>Waktu</th>
                                 <th>Suhu (°C)</th>
-                                <th>Kelembaban (%)</th>
-                                <th>pH</th>
-                                <th>Kekeruhan (NTU)</th>
+                                <th>Optical Density (OD)</th>
                             </tr>
                         </thead>
                         <tbody id="dataTableBody">
                             <tr>
-                                <td colspan="5" class="no-data">Tunggu data masuk...</td>
+                                <td colspan="3" class="no-data">Tunggu data masuk...</td>
                             </tr>
                         </tbody>
                     </table>
