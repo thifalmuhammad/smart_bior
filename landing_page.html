@@ -1,481 +1,245 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart-Bior — Monitoring Spirulina Otomatis & Real-time</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-<style>
-:root{
-  --bg:#f5f3ec;            /* warm paper */
-  --bg-2:#faf9f3;
-  --surface:#ffffff;
-  --ink:#26342c;           /* deep green-slate */
-  --ink-soft:#46564c;
-  --muted:#75847a;
-  --muted-2:#9aa89e;
-  --line:#e6e1d4;
-  --line-soft:#efebe0;
-  --green:#3c6b51;         /* calm forest */
-  --green-deep:#2c5340;
-  --green-soft:#eef3ee;
-  --green-tint:#e3ece4;
-  --sage:#8aa893;
-  --wheat:#bf9f59;         /* warm accent, used sparingly */
-  --wheat-soft:#f3ecdb;
-  --clay:#b06138;          /* muted alert */
-  --clay-soft:#f6ece4;
-  --shadow-sm:0 1px 2px rgba(38,52,44,.05),0 1px 3px rgba(38,52,44,.04);
-  --shadow:0 2px 8px rgba(38,52,44,.05),0 12px 32px rgba(38,52,44,.06);
-  --maxw:1140px;
-  --ease:cubic-bezier(.22,.61,.36,1);
-}
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth}
-body{
-  background:var(--bg);color:var(--ink);
-  font-family:'IBM Plex Sans',sans-serif;font-size:16.5px;line-height:1.65;
-  -webkit-font-smoothing:antialiased;overflow-x:hidden;
-}
-/* very subtle paper warmth, no neon */
-.bg{position:fixed;inset:0;z-index:-1;pointer-events:none;
-  background:
-    radial-gradient(50% 40% at 88% 0%, rgba(138,168,147,.10), transparent 60%),
-    radial-gradient(46% 38% at 4% 14%, rgba(191,159,89,.06), transparent 60%),
-    linear-gradient(180deg,var(--bg-2),var(--bg) 30%);
-}
-
-/* ---------- Typography ---------- */
-h1,h2,h3{font-family:'Source Serif 4',serif;font-weight:600;line-height:1.12;letter-spacing:-.01em;color:var(--ink)}
-.mono{font-family:'IBM Plex Mono',monospace}
-.eyebrow{
-  font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;
-  color:var(--green);display:inline-flex;align-items:center;gap:.6rem;font-weight:500;
-}
-.eyebrow::before{content:"";width:22px;height:1px;background:var(--sage)}
-em{font-style:italic;color:var(--green-deep)}
-
-/* ---------- Layout ---------- */
-.wrap{max-width:var(--maxw);margin:0 auto;padding:0 32px}
-section{padding:96px 0;position:relative}
-.section-head{max-width:600px;margin-bottom:48px}
-.section-head h2{font-size:clamp(1.9rem,3.6vw,2.7rem);margin:16px 0 14px;font-weight:600}
-.section-head p{color:var(--muted);font-size:1.04rem}
-
-/* ---------- Nav ---------- */
-nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;
-  padding:20px 32px;transition:all .35s var(--ease);}
-nav.scrolled{background:rgba(245,243,236,.85);backdrop-filter:blur(14px);border-bottom:1px solid var(--line);padding:14px 32px}
-.brand{font-family:'Source Serif 4',serif;font-size:1.3rem;font-weight:700;color:var(--green-deep);display:flex;align-items:center;gap:.55rem;letter-spacing:-.01em}
-.brand .leaf{width:22px;height:22px;flex-shrink:0}
-.nav-links{display:flex;gap:32px;align-items:center}
-.nav-links a{color:var(--ink-soft);text-decoration:none;font-size:.92rem;transition:color .25s;position:relative}
-.nav-links a:not(.nav-cta)::after{content:"";position:absolute;left:0;bottom:-5px;width:0;height:1.5px;background:var(--green);transition:width .3s var(--ease)}
-.nav-links a:hover{color:var(--green-deep)}
-.nav-links a:hover:not(.nav-cta)::after{width:100%}
-.nav-cta{color:#fff!important;background:var(--green);padding:9px 18px;border-radius:8px;font-size:.88rem;font-weight:500;transition:all .3s var(--ease)}
-.nav-cta:hover{background:var(--green-deep);box-shadow:var(--shadow-sm)}
-.nav-toggle{display:none;background:none;border:1px solid var(--line);color:var(--green-deep);border-radius:8px;padding:7px 11px;cursor:pointer;font-size:1.1rem}
-
-/* ---------- Hero ---------- */
-.hero{padding-top:160px;padding-bottom:70px;min-height:92vh;display:flex;align-items:center}
-.hero-grid{display:grid;grid-template-columns:1.08fr .92fr;gap:58px;align-items:center;width:100%}
-.hero-badge{display:inline-flex;align-items:center;gap:.55rem;background:var(--green-soft);border:1px solid var(--green-tint);
-  color:var(--green-deep);font-family:'IBM Plex Mono',monospace;font-size:.76rem;padding:7px 14px;border-radius:100px;
-  margin-bottom:26px;letter-spacing:.04em}
-.hero-badge .live{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-.hero h1{font-size:clamp(2.5rem,5vw,4rem);font-weight:600;margin-bottom:24px;letter-spacing:-.02em}
-.hero h1 .accent{color:var(--green);font-style:italic;font-weight:600}
-.hero p.lead{font-size:1.14rem;color:var(--ink-soft);max-width:540px;margin-bottom:34px;line-height:1.7}
-.hero-cta{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:48px}
-.btn{font-family:'IBM Plex Sans',sans-serif;font-size:.96rem;font-weight:500;text-decoration:none;padding:14px 26px;border-radius:9px;
-  transition:all .3s var(--ease);display:inline-flex;align-items:center;gap:.55rem;cursor:pointer;border:1px solid transparent}
-.btn-primary{background:var(--green);color:#fff;box-shadow:var(--shadow-sm)}
-.btn-primary:hover{background:var(--green-deep);transform:translateY(-2px);box-shadow:var(--shadow)}
-.btn-ghost{background:var(--surface);color:var(--ink);border-color:var(--line)}
-.btn-ghost:hover{border-color:var(--sage);color:var(--green-deep)}
-.hero-stats{display:flex;gap:40px;flex-wrap:wrap;padding-top:32px;border-top:1px solid var(--line)}
-.stat .num{font-family:'Source Serif 4',serif;font-size:2.1rem;font-weight:700;color:var(--green-deep);line-height:1}
-.stat .num .unit{color:var(--sage);font-size:1.2rem;font-weight:600}
-.stat .lbl{font-size:.82rem;color:var(--muted);margin-top:7px;max-width:140px}
-
-/* ---------- Hero device / live monitor ---------- */
-.device{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:24px;box-shadow:var(--shadow);position:relative}
-.device-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--line-soft)}
-.device-top .title{font-family:'IBM Plex Mono',monospace;font-size:.78rem;color:var(--muted);letter-spacing:.03em}
-.device-top .status{display:flex;align-items:center;gap:.45rem;font-family:'IBM Plex Mono',monospace;font-size:.72rem;color:var(--green)}
-.device-top .status .d{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 1.8s infinite}
-.od-readout{display:flex;align-items:baseline;gap:.6rem;margin-bottom:6px}
-.od-readout .val{font-family:'Source Serif 4',serif;font-size:2.9rem;font-weight:700;color:var(--green-deep)}
-.od-readout .sub{color:var(--muted);font-size:.92rem}
-.od-readout .tag{font-family:'IBM Plex Mono',monospace;font-size:.7rem;padding:4px 10px;border-radius:6px;background:var(--green-soft);color:var(--green-deep);margin-left:auto}
-.od-readout .tag.alert{color:var(--clay);background:var(--clay-soft)}
-.chart-box{position:relative;margin-top:6px}
-canvas{display:block;width:100%}
-.chart-legend{display:flex;gap:18px;margin-top:12px;font-family:'IBM Plex Mono',monospace;font-size:.7rem;color:var(--muted)}
-.chart-legend span{display:flex;align-items:center;gap:.4rem}
-.chart-legend i{width:14px;height:2px;display:inline-block}
-
-/* ---------- Reveal ---------- */
-.reveal{opacity:0;transform:translateY(20px);transition:opacity .7s var(--ease),transform .7s var(--ease)}
-.reveal.in{opacity:1;transform:none}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:28px;box-shadow:var(--shadow-sm);transition:all .35s var(--ease)}
-.card:hover{box-shadow:var(--shadow);transform:translateY(-3px)}
-
-/* ---------- Problem / Solution ---------- */
-.ps-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}
-.ps-card.problem{border-top:3px solid var(--clay)}
-.ps-card.solution{border-top:3px solid var(--green)}
-.ps-card h3{font-size:1.2rem;margin-bottom:4px}
-.ps-card .sub{font-family:'IBM Plex Mono',monospace;font-size:.7rem;color:var(--muted-2);text-transform:uppercase;letter-spacing:.1em;margin-bottom:20px}
-.ps-item{display:flex;gap:13px;padding:14px 0;border-top:1px solid var(--line-soft)}
-.ps-item .ic{flex-shrink:0;width:24px;height:24px;border-radius:7px;display:grid;place-items:center;font-size:.85rem;margin-top:2px;font-weight:600}
-.problem .ps-item .ic{background:var(--clay-soft);color:var(--clay)}
-.solution .ps-item .ic{background:var(--green-soft);color:var(--green)}
-.ps-item b{color:var(--ink);font-weight:600}
-.ps-item p{font-size:.92rem;color:var(--muted)}
-
-/* ---------- Features ---------- */
-.feat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:22px}
-.feat .ic{width:48px;height:48px;border-radius:12px;display:grid;place-items:center;margin-bottom:18px;background:var(--green-soft);border:1px solid var(--green-tint)}
-.feat .ic svg{width:24px;height:24px;stroke:var(--green-deep);fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
-.feat h3{font-size:1.22rem;margin-bottom:10px;font-weight:600}
-.feat p{color:var(--muted);font-size:.95rem}
-.feat .spec{margin-top:18px;font-family:'IBM Plex Mono',monospace;font-size:.72rem;color:var(--green);display:flex;flex-wrap:wrap;gap:8px}
-.feat .spec span{border:1px solid var(--line);padding:4px 9px;border-radius:6px;background:var(--bg-2)}
-
-/* ---------- Flow ---------- */
-.flow{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
-.flow-step .n{font-family:'IBM Plex Mono',monospace;font-size:.82rem;color:var(--green-deep);font-weight:500;
-  width:36px;height:36px;border-radius:9px;background:var(--green-soft);border:1px solid var(--green-tint);display:grid;place-items:center;margin-bottom:16px}
-.flow-step h3{font-size:1.06rem;margin-bottom:8px;font-weight:600}
-.flow-step p{font-size:.9rem;color:var(--muted)}
-.flow-step .eq{margin-top:14px;font-family:'IBM Plex Mono',monospace;font-size:.8rem;color:var(--green-deep);background:var(--green-soft);padding:8px 12px;border-radius:7px;display:inline-block}
-
-/* ---------- Spec table ---------- */
-.spec-table{width:100%;border-collapse:collapse;font-size:.92rem;background:var(--surface);border:1px solid var(--line);border-radius:13px;overflow:hidden;box-shadow:var(--shadow-sm)}
-.spec-table thead th{background:var(--green-soft);color:var(--green-deep);text-align:left;padding:15px 20px;
-  font-family:'IBM Plex Mono',monospace;font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;font-weight:500}
-.spec-table td{padding:15px 20px;border-top:1px solid var(--line-soft);color:var(--muted);vertical-align:top}
-.spec-table tbody tr{transition:background .2s}
-.spec-table tbody tr:hover{background:var(--bg-2)}
-.spec-table td:nth-child(2){color:var(--ink)}
-.cat-pill{font-family:'IBM Plex Mono',monospace;font-size:.68rem;color:var(--green-deep);background:var(--green-soft);border:1px solid var(--green-tint);padding:4px 9px;border-radius:6px;white-space:nowrap}
-.spec-table .hl{color:var(--green-deep);font-weight:600}
-
-/* ---------- CTA band ---------- */
-.cta-band{text-align:center;padding:84px 40px;border-radius:20px;border:1px solid var(--green-tint);
-  background:linear-gradient(180deg,var(--green-soft),var(--surface))}
-.cta-band h2{font-size:clamp(1.9rem,3.6vw,2.8rem);margin-bottom:16px;font-weight:600}
-.cta-band p{color:var(--ink-soft);max-width:520px;margin:0 auto 30px}
-
-/* ---------- Footer ---------- */
-footer{border-top:1px solid var(--line);padding:58px 0 38px;background:var(--bg-2)}
-.foot-grid{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:44px;margin-bottom:38px}
-.foot-brand{font-family:'Source Serif 4',serif;font-size:1.4rem;font-weight:700;color:var(--green-deep);margin-bottom:14px;display:flex;align-items:center;gap:.5rem}
-footer p{color:var(--muted);font-size:.92rem}
-.foot-col h4{font-family:'IBM Plex Mono',monospace;font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;color:var(--green);margin-bottom:16px;font-weight:500}
-.foot-col p{font-size:.88rem;margin-bottom:9px}
-.foot-col a{color:var(--muted);text-decoration:none;transition:color .2s}
-.foot-col a:hover{color:var(--green-deep)}
-.foot-col .dev{color:var(--ink)}
-.foot-col .dev span{color:var(--muted-2);font-family:'IBM Plex Mono',monospace;font-size:.76rem}
-.foot-bottom{border-top:1px solid var(--line);padding-top:22px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;font-size:.82rem;color:var(--muted-2)}
-
-/* ---------- Responsive ---------- */
-@media(max-width:920px){
-  .hero-grid{grid-template-columns:1fr;gap:42px}
-  .device{order:-1}
-  .ps-grid,.feat-grid{grid-template-columns:1fr}
-  .flow{grid-template-columns:1fr}
-  .foot-grid{grid-template-columns:1fr;gap:30px}
-  .nav-links{position:fixed;top:60px;right:14px;left:14px;flex-direction:column;align-items:flex-start;
-    background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px;gap:18px;box-shadow:var(--shadow);
-    transform:translateY(-12px);opacity:0;pointer-events:none;transition:all .3s var(--ease)}
-  .nav-links.open{transform:none;opacity:1;pointer-events:auto}
-  .nav-toggle{display:block}
-  section{padding:72px 0}
-}
-@media(max-width:560px){
-  .wrap{padding:0 20px}
-  .hero-stats{gap:26px}
-  .spec-table{font-size:.82rem}
-  .spec-table td,.spec-table thead th{padding:12px}
-}
-@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.reveal{opacity:1;transform:none}}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart-Bior | Dashboard Monitoring Spirulina</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/dashboard-styles.css">
 </head>
 <body>
-<div class="bg"></div>
 
-<!-- NAV -->
-<nav id="nav">
-  <div class="brand">
-    <svg class="leaf" viewBox="0 0 24 24" fill="none"><path d="M20 4C10 4 4 10 4 20c10 0 16-6 16-16Z" stroke="#3c6b51" stroke-width="1.6"/><path d="M5 19C9 13 14 9 18 7" stroke="#3c6b51" stroke-width="1.6" stroke-linecap="round"/></svg>
-    Smart-Bior
-  </div>
-  <button class="nav-toggle" id="navToggle" aria-label="Menu">☰</button>
-  <div class="nav-links" id="navLinks">
-    <a href="#solusi">Solusi</a>
-    <a href="#fitur">Fitur</a>
-    <a href="#alur">Alur Kerja</a>
-    <a href="#spesifikasi">Spesifikasi</a>
-    <a href="index.html" class="nav-cta">Buka Dashboard</a>
-  </div>
-</nav>
-
-<!-- HERO -->
-<header class="hero">
-  <div class="wrap hero-grid">
-    <div>
-      <span class="hero-badge"><span class="live"></span>Pertanian Presisi · Pemantauan Mikroalga</span>
-      <h1>Pemantauan Pertumbuhan <span class="accent">Spirulina</span> Secara Otomatis & Terukur</h1>
-      <p class="lead">Menggantikan metode laboratorium manual yang mahal dengan pengukuran Optical Density berbasis sensor optik. Melindungi kultur mikroalga dari risiko <em>culture crash</em> dengan biaya yang jauh lebih terjangkau.</p>
-      <div class="hero-cta">
-        <a href="index.html" class="btn btn-primary">Lihat Dashboard Monitoring</a>
-        <a href="#alur" class="btn btn-ghost">Pelajari Cara Kerja</a>
+<!-- ─── HEADER ─── -->
+<header>
+  <a href="index.html" style="text-decoration: none; color: inherit;">
+    <div class="logo">
+      <div class="logo-icon">
+        <i class="fas fa-leaf"></i>
       </div>
-      <div class="hero-stats">
-        <div class="stat reveal"><div class="num" data-count="95" data-suffix="%">0<span class="unit">%</span></div><div class="lbl">Lebih hemat dari instrumen lab</div></div>
-        <div class="stat reveal"><div class="num" data-count="0.85" data-decimals="2" data-prefix="R²≥">0</div><div class="lbl">Akurasi terhadap spektrofotometer</div></div>
-        <div class="stat reveal"><div class="num" data-count="7" data-suffix=" hari">0</div><div class="lbl">Operasi mandiri tanpa intervensi</div></div>
+      <div class="logo-text">
+        <h1>Smart-Bior</h1>
+        <p>Sistem Monitoring Spirulina · IPB University 2026</p>
       </div>
     </div>
-
-    <!-- LIVE MONITOR -->
-    <div class="device reveal" id="dashboard">
-      <div class="device-top">
-        <span class="title">Pemantauan OD · Tangki-01</span>
-        <span class="status"><span class="d"></span>Aktif</span>
-      </div>
-      <div class="od-readout">
-        <span class="val" id="odVal">0.00</span>
-        <span class="sub">OD<sub>680</sub></span>
-        <span class="tag" id="odTag">Normal</span>
-      </div>
-      <div class="chart-box"><canvas id="odChart" height="210"></canvas></div>
-      <div class="chart-legend">
-        <span><i style="background:var(--green)"></i>Optical Density</span>
-        <span><i style="background:var(--clay)"></i>Ambang over-density</span>
-        <span style="margin-left:auto">Interval 30 menit</span>
-      </div>
+  </a>
+  <div class="header-right">
+    <div class="live-badge">
+      <div class="live-dot"></div>
+      <span id="connectionStatus">Live · Update tiap 30 menit</span>
+    </div>
+    <div class="header-time">
+      <div id="clock">--:--:--</div>
+      <div id="dateDisplay">-- --- 2026</div>
+    </div>
+    <a href="index.html" style="margin-left: 16px; padding: 8px 14px; background: #f0f0f0; border-radius: 6px; text-decoration: none; color: #333; font-size: 12px; font-weight: 600; transition: all 0.2s; border: 1px solid #ddd;" title="Kembali ke halaman informasi">← Tentang</a>
+  </div>
+  
+  <!-- Mode Selector -->
+  <div style="display:flex; gap:8px; margin-left:12px; padding:0 12px; border-left:1px solid var(--border);">
+    <button id="btnRealMode" onclick="switchMode('real')" style="padding:6px 12px; border-radius:6px; background:#d1fae5; border:2px solid #16a34a; color:#065f46; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s;">🔴 Live (Firebase)</button>
+    <button id="btnSimMode" onclick="switchMode('simulasi')" style="padding:6px 12px; border-radius:6px; background:#f3f4f6; border:1px solid #d1d5db; color:#6b7280; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s;">⚙️ Simulasi</button>
+    
+    <!-- Scenario Buttons (hidden by default) -->
+    <div id="scenarioButtons" style="display:none; gap:6px; display:flex; margin-left:8px; padding-left:8px; border-left:1px solid var(--border);">
+      <button onclick="startDynamicSimulation('belum_panen')" style="padding:6px 10px; border-radius:6px; background:#d1fae5; border:1px solid #16a34a; color:#065f46; font-size:11px; font-weight:600; cursor:pointer; transition:all 0.2s;">📈 Tumbuh</button>
+      <button onclick="startDynamicSimulation('siap_panen')" style="padding:6px 10px; border-radius:6px; background:#fef3c7; border:1px solid #eab308; color:#78350f; font-size:11px; font-weight:600; cursor:pointer; transition:all 0.2s;">🌾 Panen</button>
+      <button onclick="startDynamicSimulation('bahaya')" style="padding:6px 10px; border-radius:6px; background:#fee2e2; border:1px solid #ef4444; color:#991b1b; font-size:11px; font-weight:600; cursor:pointer; transition:all 0.2s;">🚨 Bahaya</button>
     </div>
   </div>
 </header>
 
-<!-- PROBLEM / SOLUTION -->
-<section id="solusi">
-  <div class="wrap">
-    <div class="section-head reveal">
-      <span class="eyebrow">Latar Belakang</span>
-      <h2>Mengapa Smart-Bior Diperlukan?</h2>
-      <p>Budidaya komersial <em>Spirulina (Arthrospira platensis)</em> menghadapi tantangan dalam memantau kepadatan biomassa. Deteksi yang terlambat terhadap kondisi <em>over-density</em> dapat memicu kompetisi nutrisi ekstrem hingga kematian massal kultur.</p>
+<!-- ─── MAIN ─── -->
+<main>
+
+  <!-- Alert Banner -->
+  <div class="alert-banner harvest" id="alertBanner">
+    <div class="alert-icon">
+      <i class="fas fa-sheaf-wheat"></i>
     </div>
-    <div class="ps-grid">
-      <div class="ps-card problem card reveal">
-        <h3>Metode Konvensional</h3>
-        <div class="sub">Lapangan & Laboratorium</div>
-        <div class="ps-item"><div class="ic">—</div><p><b>Spektrofotometer UV-Vis</b> — akurat namun berbiaya &gt;Rp 20 juta, tidak terjangkau pembudidaya kecil.</p></div>
-        <div class="ps-item"><div class="ic">—</div><p><b>Secchi Disk</b> — murah namun subjektif, sensitivitas rendah, bergantung pada pencahayaan luar.</p></div>
-        <div class="ps-item"><div class="ic">—</div><p><b>Pengamatan Visual</b> — semi-kuantitatif, tidak konsisten, tanpa data deret waktu yang reliabel.</p></div>
+    <div class="alert-content">
+      <h3 id="alertTitle">Spirulina Siap Dipanen!</h3>
+      <p id="alertMsg">Kepadatan kultur berada di puncak fase stasioner (OD = 1.42). Segera lakukan pemanenan untuk mendapatkan hasil biomassa terbaik dan mencegah risiko <em>culture crash</em>.</p>
+    </div>
+  </div>
+
+  <!-- Stats Row -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">
+        <i class="fas fa-microscope"></i>
+        Optical Density (OD)
       </div>
-      <div class="ps-card solution card reveal">
-        <h3>Solusi Smart-Bior</h3>
-        <div class="sub">Terintegrasi & Otomatis</div>
-        <div class="ps-item"><div class="ic">✓</div><p><b>Ekonomis & Skalabel</b> — memangkas biaya investasi alat hingga sebagian kecil dari harga instrumen lab.</p></div>
-        <div class="ps-item"><div class="ic">✓</div><p><b>Pengukuran Objektif</b> — menggunakan Hukum Beer-Lambert untuk konversi Optical Density secara eksak.</p></div>
-        <div class="ps-item"><div class="ic">✓</div><p><b>Otomatisasi Penuh</b> — sirkulasi mandiri terjadwal meminimalkan beban tenaga kerja operator.</p></div>
+      <div class="stat-value" id="odValue">1.42</div>
+      <div class="stat-sub">diukur pada λ = 650 nm</div>
+      <div class="stat-trend trend-up">
+        <i class="fas fa-arrow-trend-up"></i>
+        <span id="trendOD">Naik 0.08 sejak tadi malam</span>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">
+        <i class="fas fa-weight"></i>
+        Estimasi Biomassa
+      </div>
+      <div class="stat-value" id="biomassValue">1.06 <span>g/L</span></div>
+      <div class="stat-sub">berdasarkan kurva kalibrasi</div>
+      <div class="stat-trend trend-optimal">
+        <i class="fas fa-star"></i>
+        <span>Optimal untuk dipanen</span>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">
+        <i class="fas fa-chart-line"></i>
+        Pengukuran Hari Ini
+      </div>
+      <div class="stat-value" id="countValue">48</div>
+      <div class="stat-sub">kali pengukuran otomatis</div>
+      <div class="stat-trend trend-neutral">
+        <i class="fas fa-minus"></i>
+        <span>Normal, interval 30 menit</span>
       </div>
     </div>
   </div>
-</section>
 
-<!-- FEATURES -->
-<section id="fitur">
-  <div class="wrap">
-    <div class="section-head reveal">
-      <span class="eyebrow">Kapabilitas</span>
-      <h2>Fitur Utama Platform</h2>
-      <p>Empat pilar yang menjadikan Smart-Bior instrumen pemantauan mikroalga yang andal, presisi, dan otonom.</p>
+  <!-- Gauge -->
+  <div class="gauge-card">
+    <div class="card-title">
+      <i class="fas fa-gauge"></i>
+      Tingkat Kepadatan Kultur Saat Ini
     </div>
-    <div class="feat-grid">
-      <div class="feat card reveal">
-        <div class="ic"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 13.7-5.6M20 12a8 8 0 0 1-13.7 5.6"/><path d="M17 3v4h-4M7 21v-4h4"/></svg></div>
-        <h3>Sampling Mandiri Otomatis</h3>
-        <p>Pompa peristaltik 12V DC mengotomatisasi pengisian cairan ke flow cell, menghapus kebutuhan pengambilan sampel manual oleh operator.</p>
-        <div class="spec"><span>12V DC</span><span>50 mL/menit</span><span>Flow cell akrilik</span></div>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <span style="font-size:12px; color:var(--text-muted);">OD saat ini:</span>
+      <span style="font-family:var(--mono); font-size:20px; font-weight:700; color:var(--text);" id="gaugeOD">1.42</span>
+    </div>
+    <div class="gauge-track">
+      <div class="gauge-fill" id="gaugeFill" style="width:71%;"></div>
+      <div class="gauge-needle" id="gaugeNeedle" style="left:71%;"></div>
+    </div>
+    <div class="gauge-labels">
+      <span>0.0</span>
+      <span>0.5</span>
+      <span>1.0</span>
+      <span>1.5</span>
+      <span>2.0</span>
+    </div>
+    <div class="gauge-zones">
+      <div class="zone-dot">
+        <div class="dot green"></div>
+        <span>0 – 1.0: Masih tumbuh</span>
       </div>
-      <div class="feat card reveal">
-        <div class="ic"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></svg></div>
-        <h3>Pengukuran Optik Presisi</h3>
-        <p>LED 680 nm <em>narrow-band</em> dan photodiode spektral AS7262 yang sejajar mendeteksi puncak absorbsi klorofil-a secara akurat.</p>
-        <div class="spec"><span>LED 680 nm</span><span>AS7262</span><span>OD 0,1–2,0</span></div>
+      <div class="zone-dot">
+        <div class="dot yellow"></div>
+        <span>1.0 – 1.5: Zona panen <i class="fas fa-check"></i></span>
       </div>
-      <div class="feat card reveal">
-        <div class="ic"><svg viewBox="0 0 24 24"><path d="M17.5 19a4.5 4.5 0 1 0 0-9 6 6 0 0 0-11.6-1.5A4 4 0 0 0 6 19Z"/></svg></div>
-        <h3>Arsitektur IoT & Cloud</h3>
-        <p>Prosesor SoC ESP32 dual-core mentransmisikan data ADC 12-bit langsung ke Firebase Realtime Database melalui jaringan WiFi lokal.</p>
-        <div class="spec"><span>ESP32</span><span>ADC 12-bit</span><span>Firebase RTDB</span></div>
-      </div>
-      <div class="feat card reveal">
-        <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 3 3 19h18L12 3Z"/><path d="M12 10v4M12 17h.01"/></svg></div>
-        <h3>Peringatan Dini Krisis Kultur</h3>
-        <p>Notifikasi berbasis ambang batas memicu indikator peringatan di dashboard ketika grafik mendekati fase over-density / crash.</p>
-        <div class="spec"><span>Threshold event</span><span>Peringatan real-time</span></div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- FLOW -->
-<section id="alur">
-  <div class="wrap">
-    <div class="section-head reveal">
-      <span class="eyebrow">Siklus Operasi</span>
-      <h2>Bagaimana Sistem Bekerja?</h2>
-      <p>Smart-Bior beroperasi secara kontinu dan mandiri dalam siklus terprogram enam tahap untuk menjaga validitas data pertumbuhan mikroalga.</p>
-    </div>
-    <div class="flow">
-      <div class="flow-step card reveal"><div class="n">01</div><h3>Inisialisasi & Blanko</h3><p>Kalibrasi pembacaan intensitas cahaya awal menggunakan air jernih atau media tanpa sel.</p><div class="eq">baca I₀</div></div>
-      <div class="flow-step card reveal"><div class="n">02</div><h3>Aktivasi Aliran</h3><p>ESP32 mengaktifkan relay selama ±10 detik untuk mengalirkan sampel biomassa baru ke flow cell.</p></div>
-      <div class="flow-step card reveal"><div class="n">03</div><h3>Stabilisasi Fase</h3><p>Sistem berhenti selama 5 detik agar turbulensi dan gelembung udara mereda sebelum pembacaan.</p></div>
-      <div class="flow-step card reveal"><div class="n">04</div><h3>Deteksi Transmitansi</h3><p>Photodiode menangkap sisa intensitas cahaya yang menembus kerapatan sel Spirulina.</p><div class="eq">baca I</div></div>
-      <div class="flow-step card reveal"><div class="n">05</div><h3>Kalkulasi Beer-Lambert</h3><p>Firmware menghitung nilai OD lalu mengunggahnya ke server database.</p><div class="eq">OD = log₁₀(I₀ / I)</div></div>
-      <div class="flow-step card reveal"><div class="n">06</div><h3>Visualisasi Dashboard</h3><p>Data ter-update otomatis pada grafik deret waktu web tanpa perlu me-refresh halaman.</p></div>
-    </div>
-  </div>
-</section>
-
-<!-- SPEC -->
-<section id="spesifikasi">
-  <div class="wrap">
-    <div class="section-head reveal">
-      <span class="eyebrow">Data Teknis</span>
-      <h2>Spesifikasi Kinerja Sistem</h2>
-      <p>Parameter operasional dan kriteria keberhasilan yang diverifikasi terhadap instrumen standar laboratorium.</p>
-    </div>
-    <div class="reveal" style="overflow-x:auto">
-    <table class="spec-table">
-      <thead><tr><th style="width:18%">Kategori</th><th style="width:37%">Parameter</th><th style="width:45%">Spesifikasi & Kriteria</th></tr></thead>
-      <tbody>
-        <tr><td><span class="cat-pill">Operasional</span></td><td>Laju Aliran Pompa</td><td><span class="hl">50 mL/menit</span> — sirkulasi kontinu homogen</td></tr>
-        <tr><td><span class="cat-pill">Operasional</span></td><td>Interval Sampling</td><td><span class="hl">30 menit</span> sekali, otomatis</td></tr>
-        <tr><td><span class="cat-pill">Operasional</span></td><td>Durasi Siklus Mandiri</td><td><span class="hl">≥ 7 hari</span> tanpa intervensi manual</td></tr>
-        <tr><td><span class="cat-pill">Sensor Optik</span></td><td>Rentang Deteksi</td><td><span class="hl">OD 0,1–2,0</span> (setara 10⁴–10⁷ sel/mL)</td></tr>
-        <tr><td><span class="cat-pill">Sensor Optik</span></td><td>Panjang Gelombang</td><td><span class="hl">650–680 nm</span> — puncak absorbsi klorofil-a</td></tr>
-        <tr><td><span class="cat-pill">Sensor Optik</span></td><td>Resolusi ADC</td><td><span class="hl">12-bit</span> pada pin GPIO34 ESP32</td></tr>
-        <tr><td><span class="cat-pill">Kualitas Data</span></td><td>Koefisien Determinasi</td><td><span class="hl">R² ≥ 0,85</span> dibandingkan spektrofotometer lab</td></tr>
-        <tr><td><span class="cat-pill">Infrastruktur</span></td><td>Penyimpanan Cloud</td><td><span class="hl">Firebase RTDB</span> — sinkronisasi format JSON</td></tr>
-      </tbody>
-    </table>
-    </div>
-  </div>
-</section>
-
-<!-- CTA -->
-<section>
-  <div class="wrap">
-    <div class="cta-band reveal">
-      <span class="eyebrow" style="justify-content:center">Mulai Pemantauan</span>
-      <h2>Menjaga Kultur Sebelum Terlambat</h2>
-      <p>Pantau Optical Density secara real-time, dapatkan peringatan dini culture crash, dan kelola budidaya mikroalga tanpa instrumen laboratorium yang mahal.</p>
-      <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
-        <a href="index.html" class="btn btn-primary">Buka Dashboard</a>
-        <a href="#" class="btn btn-ghost">Dokumentasi Prototipe</a>
+      <div class="zone-dot">
+        <div class="dot red"></div>
+        <span>&gt;1.5: Terlalu padat!</span>
       </div>
     </div>
-  </div>
-</section>
-
-<!-- FOOTER -->
-<footer>
-  <div class="wrap">
-    <div class="foot-grid">
+    <div class="gauge-rec">
+      <i class="fas fa-exclamation-triangle"></i>
       <div>
-        <div class="foot-brand">
-          <svg class="leaf" viewBox="0 0 24 24" fill="none"><path d="M20 4C10 4 4 10 4 20c10 0 16-6 16-16Z" stroke="#2c5340" stroke-width="1.6"/><path d="M5 19C9 13 14 9 18 7" stroke="#2c5340" stroke-width="1.6" stroke-linecap="round"/></svg>
-          Smart-Bior
-        </div>
-        <p>Inovasi Alat Perancangan & Pengujian Mesin Pertanian. Laboratorium Siswadhi Supardjo, Program Studi Teknik Pertanian dan Biosistem.</p>
-        <p style="margin-top:10px;color:var(--muted-2)">Sekolah Pascasarjana, Institut Pertanian Bogor (IPB University).</p>
+        <strong>Rekomendasi:</strong> Panen segera dalam <strong>24 jam ke depan</strong>. Jika dibiarkan melewati OD 1.5, risiko <em>culture crash</em> meningkat signifikan.
       </div>
-      <div class="foot-col">
-        <h4>Navigasi</h4>
-        <p><a href="#solusi">Solusi</a></p>
-        <p><a href="#fitur">Fitur Utama</a></p>
-        <p><a href="#alur">Alur Kerja</a></p>
-        <p><a href="#spesifikasi">Spesifikasi</a></p>
-      </div>
-      <div class="foot-col">
-        <h4>Tim Pengembang</h4>
-        <p class="dev">Muhammad Thifal <span>F0501251009</span></p>
-        <p class="dev">Lina Siti Kholifah <span>F0501251007</span></p>
-      </div>
-    </div>
-    <div class="foot-bottom">
-      <span>© 2026 Smart-Bior. Hak Cipta Dilindungi.</span>
-      <span>IPB University · Pertanian Presisi & IoT</span>
     </div>
   </div>
+
+  <!-- Chart -->
+  <div class="chart-card">
+    <div class="chart-header">
+      <div class="card-title">
+        <i class="fas fa-chart-area"></i>
+        Grafik Pertumbuhan — 24 Jam Terakhir
+      </div>
+      <div class="chart-legend">
+        <div class="legend-item">
+          <div class="legend-line" style="background:var(--green);"></div>
+          <span>OD Terukur</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-line dashed"></div>
+          <span>Batas bahaya (OD 1.5)</span>
+        </div>
+      </div>
+    </div>
+    <canvas id="growthChart"></canvas>
+  </div>
+
+  <!-- Two Col: Spectral + Table -->
+  <div class="two-col">
+
+    <!-- Spectral Sensor -->
+    <div class="spectral-card">
+      <div class="card-title">
+        <i class="fas fa-radiation"></i>
+        Pembacaan Sensor AS7262 — 6 Kanal
+      </div>
+      <div class="spectral-grid" id="spectralGrid">
+        <!-- injected by JS -->
+      </div>
+      <div class="spectral-note">
+        <i class="fas fa-info-circle"></i>
+        Kanal 650 nm digunakan untuk menghitung nilai OD spirulina karena merupakan puncak absorbansi klorofil-a
+      </div>
+    </div>
+
+    <!-- History Table -->
+    <div class="table-card">
+      <div class="table-header-row">
+        <div class="card-title">
+          <i class="fas fa-history"></i>
+          Riwayat Pengukuran Hari Ini
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th><i class="fas fa-clock"></i> Waktu</th>
+            <th><i class="fas fa-microscope"></i> OD</th>
+            <th><i class="fas fa-droplet"></i> Biomassa</th>
+            <th><i class="fas fa-flag"></i> Status</th>
+          </tr>
+        </thead>
+        <tbody id="historyTable">
+          <!-- injected by JS -->
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- Notifications -->
+  <div class="notif-card">
+    <div class="notif-header-row">
+      <div class="card-title">
+        <i class="fas fa-bell"></i>
+        Notifikasi Sistem & Peringatan
+      </div>
+    </div>
+    <div class="notif-list" id="notifList">
+      <!-- injected by JS -->
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  <p>Smart-Bior v1.0 · Sistem Monitoring Spirulina Berbasis IoT · Program Studi Teknik Pertanian dan Biosistem, IPB University · 2026</p>
 </footer>
 
-<script>
-/* Nav scroll + mobile toggle */
-const nav=document.getElementById('nav'),navLinks=document.getElementById('navLinks');
-addEventListener('scroll',()=>nav.classList.toggle('scrolled',scrollY>30));
-document.getElementById('navToggle').onclick=()=>navLinks.classList.toggle('open');
-navLinks.querySelectorAll('a').forEach(a=>a.onclick=()=>navLinks.classList.remove('open'));
+<!-- ─── FIREBASE SDK ─── -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
-/* Reveal on scroll */
-const io=new IntersectionObserver(es=>es.forEach(e=>{
-  if(e.isIntersecting){e.target.classList.add('in');const c=e.target.querySelector('[data-count]');if(c)countUp(c);io.unobserve(e.target)}
-}),{threshold:.16});
-document.querySelectorAll('.reveal').forEach((el,i)=>{el.style.transitionDelay=(i%3*70)+'ms';io.observe(el)});
+<!-- ─── CHART.JS CDN ─── -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 
-/* Animated counters */
-function countUp(el){
-  const tgt=parseFloat(el.dataset.count),dec=+(el.dataset.decimals||0),pre=el.dataset.prefix||'',suf=el.dataset.suffix||'',unit=el.querySelector('.unit');
-  let t0=null;const dur=1300;
-  (function step(ts){if(!t0)t0=ts;const p=Math.min((ts-t0)/dur,1),e=1-Math.pow(1-p,3);
-    el.firstChild.nodeValue=pre+(tgt*e).toFixed(dec)+(suf&&!unit?suf:'');if(p<1)requestAnimationFrame(step);})(performance.now());
-}
+<!-- ─── DASHBOARD SCRIPT ─── -->
+<script src="js/dashboard.js"></script>
 
-/* Live OD chart — calm light theme */
-(function(){
-  const cv=document.getElementById('odChart'),ctx=cv.getContext('2d'),
-    odVal=document.getElementById('odVal'),odTag=document.getElementById('odTag');
-  const css=getComputedStyle(document.documentElement),
-    GREEN=css.getPropertyValue('--green').trim()||'#3c6b51',
-    GDEEP=css.getPropertyValue('--green-deep').trim()||'#2c5340',
-    CLAY=css.getPropertyValue('--clay').trim()||'#b06138';
-  const THRESH=1.7,MAXOD=2.0;let data=[],t=0;
-  function resize(){const r=cv.getBoundingClientRect();cv.width=r.width*devicePixelRatio;cv.height=210*devicePixelRatio;ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);}
-  resize();addEventListener('resize',()=>{resize();draw();});
-  for(let i=0;i<60;i++)data.push(0.15+1.75*(1/(1+Math.exp(-(i/60-.62)*11)))+Math.sin(i*.7)*.012);
-  function draw(){
-    const w=cv.width/devicePixelRatio,h=210,pad=8,plotH=h-pad*2;
-    ctx.clearRect(0,0,w,h);
-    const y=v=>pad+plotH-(v/MAXOD)*plotH,x=i=>(i/(data.length-1))*w;
-    ctx.strokeStyle='rgba(60,107,81,.10)';ctx.lineWidth=1;
-    for(let g=0;g<=4;g++){const gy=pad+plotH*g/4;ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(w,gy);ctx.stroke();}
-    ctx.setLineDash([5,5]);ctx.strokeStyle='rgba(176,97,56,.6)';ctx.beginPath();ctx.moveTo(0,y(THRESH));ctx.lineTo(w,y(THRESH));ctx.stroke();ctx.setLineDash([]);
-    const last=data[data.length-1],danger=last>=THRESH;
-    const grad=ctx.createLinearGradient(0,pad,0,h);grad.addColorStop(0,danger?'rgba(176,97,56,.16)':'rgba(60,107,81,.16)');grad.addColorStop(1,'rgba(60,107,81,0)');
-    ctx.beginPath();ctx.moveTo(0,h);data.forEach((v,i)=>ctx.lineTo(x(i),y(v)));ctx.lineTo(w,h);ctx.closePath();ctx.fillStyle=grad;ctx.fill();
-    ctx.beginPath();data.forEach((v,i)=>i?ctx.lineTo(x(i),y(v)):ctx.moveTo(x(i),y(v)));ctx.strokeStyle=danger?CLAY:GREEN;ctx.lineWidth=2.2;ctx.stroke();
-    const hx=x(data.length-1),hy=y(last);ctx.beginPath();ctx.arc(hx,hy,3.5,0,7);ctx.fillStyle=danger?CLAY:GDEEP;ctx.fill();
-    ctx.beginPath();ctx.arc(hx,hy,8,0,7);ctx.strokeStyle=danger?'rgba(176,97,56,.3)':'rgba(60,107,81,.3)';ctx.stroke();
-    odVal.textContent=last.toFixed(2);odVal.style.color=danger?CLAY:'';
-    odTag.textContent=danger?'⚠ Over-density':'Normal';odTag.className='tag'+(danger?' alert':'');
-  }
-  function tick(){t+=.06;let nv=data[data.length-1]+0.012+Math.sin(t)*.005;
-    if(nv>1.95){data=[];for(let i=0;i<60;i++)data.push(0.15+Math.sin(i*.5)*.01);nv=data[59];}
-    data.push(nv);if(data.length>72)data.shift();draw();}
-  draw();setInterval(tick,950);
-})();
-</script>
 </body>
 </html>
