@@ -15,6 +15,7 @@ const state = {
     dataHistory: [],
     currentData: null,
     firebaseData: null,
+    firebaseRef: null,
     updateCount: 0
 };
 
@@ -73,13 +74,87 @@ function getTimestamp() {
     });
 }
 
+function normalizeDate(date) {
+    if (typeof date === 'string' || typeof date === 'number') date = new Date(date);
+    return date;
+}
+
 function formatTime(date) {
-    if (typeof date === 'string') date = new Date(date);
-    return date.toLocaleTimeString('id-ID', { 
-        hour: '2-digit', 
-        minute: '2-digit',
-        hour12: false
-    });
+    date = normalizeDate(date);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
+function formatChartTime(date, chartWidth) {
+    date = normalizeDate(date);
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+
+    if (chartWidth < 360) {
+        return `${hours}:${minutes}`;
+    }
+
+    if (chartWidth < 520) {
+        return `${hours}:${minutes}:${seconds}`;
+    }
+
+    return `${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
+function normalizeTimestamp(timestamp) {
+    const numericTimestamp = Number(timestamp);
+
+    if (!Number.isFinite(numericTimestamp)) {
+        return new Date();
+    }
+
+    return new Date(numericTimestamp < 10000000000 ? numericTimestamp * 1000 : numericTimestamp);
+}
+
+function normalizeSensorReading(reading, fallbackTimestamp) {
+    if (!reading || typeof reading !== 'object') return null;
+
+    const temperature = Number(reading.temperature);
+    const od = Number(reading.od ?? reading.turbidity);
+    const timestamp = reading.timestamp ?? fallbackTimestamp;
+
+    if (!Number.isFinite(temperature) || !Number.isFinite(od)) {
+        return null;
+    }
+
+    return {
+        timestamp: normalizeTimestamp(timestamp),
+        temperature,
+        turbidity: od
+    };
+}
+
+function normalizeFirebaseHistory(firebasePayload) {
+    if (!firebasePayload) return [];
+
+    const historyPayload =
+        firebasePayload.history ??
+        firebasePayload['smart-bior']?.history ??
+        firebasePayload.bioreactor?.history ??
+        firebasePayload;
+    const historyEntries = Array.isArray(historyPayload)
+        ? historyPayload.map((reading, index) => [reading?.timestamp ?? index, reading])
+        : Object.entries(historyPayload);
+
+    return historyEntries
+        .map(([timestampKey, reading]) => normalizeSensorReading(reading, timestampKey))
+        .filter(Boolean)
+        .sort((a, b) => a.timestamp - b.timestamp)
+        .slice(-CONFIG.DATA_HISTORY_LENGTH);
 }
 
 function evaluateStatus(value, sensorType) {
@@ -93,6 +168,13 @@ function evaluateStatus(value, sensorType) {
     } else {
         return { status: 'danger', badge: '✗ Abnormal' };
     }
+}
+
+function formatSensorValue(value, sensorType) {
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue)) return '--';
+
+    return numericValue.toFixed(sensorType === 'turbidity' ? 4 : 2);
 }
 
 // ==================== UI UPDATE FUNCTIONS ====================
@@ -120,7 +202,7 @@ function updateSensorCard(sensorName, value, sensorType) {
     if (history.length > 0) {
         const min = Math.min(...history);
         const max = Math.max(...history);
-        rangeElement.textContent = `Min: ${min.toFixed(2)}, Max: ${max.toFixed(2)}`;
+        rangeElement.textContent = `Min: ${formatSensorValue(min, sensorType)}, Max: ${formatSensorValue(max, sensorType)}`;
     }
 
     // Create sparkline chart
@@ -173,8 +255,8 @@ function createSparkline(elementId, data) {
     const timestamps = state.dataHistory.slice(-data.length).map(item => item.timestamp);
     addChartLabel(container, 'chart-label-y-max', max.toFixed(2));
     addChartLabel(container, 'chart-label-y-min', min.toFixed(2));
-    addChartLabel(container, 'chart-label-x-start', formatTime(timestamps[0]));
-    addChartLabel(container, 'chart-label-x-end', formatTime(timestamps[timestamps.length - 1]));
+    addChartLabel(container, 'chart-label-x-start', formatChartTime(timestamps[0], width));
+    addChartLabel(container, 'chart-label-x-end', formatChartTime(timestamps[timestamps.length - 1], width));
 }
 
 function addChartLabel(container, className, text) {
@@ -207,8 +289,8 @@ function updateDataTable() {
     tableBody.innerHTML = recentData.map(data => `
         <tr>
             <td>${formatTime(data.timestamp)}</td>
-            <td>${data.temperature.toFixed(2)}</td>
-            <td>${data.turbidity.toFixed(2)}</td>
+            <td>${formatSensorValue(data.temperature, 'temperature')}</td>
+            <td>${formatSensorValue(data.turbidity, 'turbidity')}</td>
         </tr>
     `).join('');
 }
@@ -221,11 +303,15 @@ function updateSystemStatus() {
 
     // Mode Status
     const modeStatus = document.getElementById('modeStatus');
-    modeStatus.textContent = state.isSimulating ? 'Simulasi Aktif' : 'Standby';
+    modeStatus.textContent = state.isConnected ? 'Firebase Live' : (state.isSimulating ? 'Simulasi Aktif' : 'Standby');
 
     // Data Points Count
     const dataPointsCount = document.getElementById('dataPointsCount');
     dataPointsCount.textContent = state.dataHistory.length;
+
+    // Update Interval
+    const updateInterval = document.getElementById('updateInterval');
+    updateInterval.textContent = state.isConnected ? 'Realtime' : '2s';
 
     // Last Update Time
     const lastUpdate = document.getElementById('lastUpdate');
@@ -262,11 +348,33 @@ function processNewData(data) {
     localStorage.setItem('sensorHistory', JSON.stringify(state.dataHistory));
 
     // Update UI
-    updateSensorCard('temp', data.temperature.toFixed(2), 'temperature');
-    updateSensorCard('turbidity', data.turbidity.toFixed(2), 'turbidity');
+    updateSensorCard('temp', formatSensorValue(data.temperature, 'temperature'), 'temperature');
+    updateSensorCard('turbidity', formatSensorValue(data.turbidity, 'turbidity'), 'turbidity');
     
     updateDataTable();
     updateSystemStatus();
+}
+
+function processFirebaseHistory(firebasePayload) {
+    const normalizedHistory = normalizeFirebaseHistory(firebasePayload);
+
+    if (normalizedHistory.length === 0) {
+        console.warn('Firebase data kosong atau format tidak valid:', firebasePayload);
+        return false;
+    }
+
+    state.firebaseData = firebasePayload;
+    state.dataHistory = normalizedHistory;
+    state.currentData = normalizedHistory[normalizedHistory.length - 1];
+    state.updateCount = normalizedHistory.length;
+
+    saveDataToStorage();
+
+    updateSensorCard('temp', formatSensorValue(state.currentData.temperature, 'temperature'), 'temperature');
+    updateSensorCard('turbidity', formatSensorValue(state.currentData.turbidity, 'turbidity'), 'turbidity');
+    updateDataTable();
+    updateSystemStatus();
+    return true;
 }
 
 function simulateData() {
@@ -279,35 +387,65 @@ function simulateData() {
     setTimeout(simulateData, CONFIG.UPDATE_INTERVAL);
 }
 
-// ==================== FIREBASE INTEGRATION (READY) ====================
-// This will be filled with actual Firebase config later
+// ==================== FIREBASE INTEGRATION ====================
 const firebaseConfig = {
-    // apiKey: "YOUR_API_KEY",
-    // authDomain: "YOUR_AUTH_DOMAIN",
-    // databaseURL: "YOUR_DATABASE_URL",
-    // projectId: "YOUR_PROJECT_ID",
-    // storageBucket: "YOUR_STORAGE_BUCKET",
-    // messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-    // appId: "YOUR_APP_ID"
+    apiKey: "AIzaSyDzUepyqix_E8mKzNSc8ijMxF3yXDYLBF4",
+    authDomain: "smart-bior-6dac6.firebaseapp.com",
+    databaseURL: "https://smart-bior-6dac6-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "smart-bior-6dac6",
+    storageBucket: "smart-bior-6dac6.firebasestorage.app",
+    messagingSenderId: "996524440588",
+    appId: "1:996524440588:web:7d5842c0d4869201398229",
+    measurementId: "G-HV429BVJX2"
 };
 
 function initializeFirebase() {
-    // TODO: Initialize Firebase when config is available
-    console.log('Firebase initialization ready. Add your credentials to proceed.');
-    return false;
+    if (!window.firebase) {
+        alert('Firebase SDK belum termuat. Pastikan koneksi internet aktif saat membuka dashboard.');
+        return null;
+    }
+
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
+
+    return firebase.database();
+}
+
+function disconnectFirebase() {
+    if (state.firebaseRef) {
+        state.firebaseRef.off();
+        state.firebaseRef = null;
+    }
 }
 
 function connectToFirebase() {
-    // Check if Firebase config is available
-    if (!firebaseConfig.apiKey) {
-        alert('⚠️ Firebase config belum dikonfigurasi.\n\nLangkah selanjutnya:\n1. Buat project di Firebase Console\n2. Copy credentials Anda\n3. Ganti firebaseConfig di script.js\n4. Ganti simulasi dengan data real Firebase');
-        return false;
-    }
+    console.log('Connecting to Firebase realtime listener...');
+    const database = initializeFirebase();
 
-    // TODO: Implement real Firebase connection
-    console.log('Connecting to Firebase...');
+    if (!database) return false;
+
+    state.isSimulating = false;
+    disconnectFirebase();
+
+    state.firebaseRef = database.ref('/');
+    state.firebaseRef.on('value', (snapshot) => {
+        const isProcessed = processFirebaseHistory(snapshot.val());
+
+        state.isConnected = isProcessed;
+        updateConnectionIndicator(isProcessed);
+        updateSystemStatus();
+    }, (error) => {
+        console.error('Firebase realtime read error:', error);
+        alert(`Gagal membaca Firebase: ${error.message}`);
+        state.isConnected = false;
+        updateConnectionIndicator(false);
+        updateSystemStatus();
+    });
+
     state.isConnected = true;
     updateConnectionIndicator(true);
+    updateSystemStatus();
     return true;
 }
 
@@ -318,15 +456,25 @@ document.addEventListener('DOMContentLoaded', function() {
     // Connect Firebase Button
     const connectBtn = document.getElementById('connectBtn');
     connectBtn.addEventListener('click', function() {
+        connectBtn.disabled = true;
+        connectBtn.style.opacity = '0.5';
+
         if (connectToFirebase()) {
             alert('✓ Terhubung ke Firebase!');
         }
+
+        connectBtn.disabled = false;
+        connectBtn.style.opacity = '1';
     });
 
     // Start Simulation Button
     const startSimulationBtn = document.getElementById('startSimulationBtn');
     startSimulationBtn.addEventListener('click', function() {
         if (!state.isSimulating) {
+            disconnectFirebase();
+            state.isConnected = false;
+            updateConnectionIndicator(false);
+
             state.isSimulating = true;
             startSimulationBtn.style.opacity = '0.5';
             startSimulationBtn.disabled = true;
@@ -397,8 +545,8 @@ function loadDataFromStorage() {
                 const lastData = state.dataHistory[state.dataHistory.length - 1];
                 state.currentData = lastData;
                 
-                updateSensorCard('temp', lastData.temperature.toFixed(2), 'temperature');
-                updateSensorCard('turbidity', lastData.turbidity.toFixed(2), 'turbidity');
+                updateSensorCard('temp', formatSensorValue(lastData.temperature, 'temperature'), 'temperature');
+                updateSensorCard('turbidity', formatSensorValue(lastData.turbidity, 'turbidity'), 'turbidity');
                 
                 updateDataTable();
                 updateSystemStatus();
