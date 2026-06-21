@@ -4,8 +4,6 @@ const CONFIG = {
     DATA_HISTORY_LENGTH: 100,
     SENSOR_RANGES: {
         temperature: { min: 20, max: 40, ideal: [25, 35] },
-        humidity: { min: 30, max: 90, ideal: [60, 80] },
-        pH: { min: 4, max: 10, ideal: [6.5, 7.5] },
         turbidity: { min: 0, max: 100, ideal: [0, 10] }
     }
 };
@@ -22,8 +20,6 @@ class DummyDataGenerator {
     constructor() {
         this.lastValues = {
             temperature: 28,
-            humidity: 65,
-            pH: 7.0,
             turbidity: 5
         };
     }
@@ -43,20 +39,6 @@ class DummyDataGenerator {
             1
         );
 
-        this.lastValues.humidity = this.generateRandomWalk(
-            this.lastValues.humidity,
-            CONFIG.SENSOR_RANGES.humidity.min,
-            CONFIG.SENSOR_RANGES.humidity.max,
-            2
-        );
-
-        this.lastValues.pH = this.generateRandomWalk(
-            this.lastValues.pH,
-            CONFIG.SENSOR_RANGES.pH.min,
-            CONFIG.SENSOR_RANGES.pH.max,
-            0.1
-        );
-
         this.lastValues.turbidity = this.generateRandomWalk(
             this.lastValues.turbidity,
             CONFIG.SENSOR_RANGES.turbidity.min,
@@ -67,8 +49,6 @@ class DummyDataGenerator {
         return {
             timestamp: new Date(),
             temperature: this.lastValues.temperature,
-            humidity: this.lastValues.humidity,
-            pH: this.lastValues.pH,
             turbidity: this.lastValues.turbidity
         };
     }
@@ -81,8 +61,8 @@ function getTimestamp() {
     const now = new Date();
     return now.toLocaleTimeString('id-ID', { 
         hour: '2-digit', 
-        minute: '2-digit', 
-        second: '2-digit' 
+        minute: '2-digit',
+        hour12: false
     });
 }
 
@@ -90,8 +70,8 @@ function formatTime(date) {
     if (typeof date === 'string') date = new Date(date);
     return date.toLocaleTimeString('id-ID', { 
         hour: '2-digit', 
-        minute: '2-digit', 
-        second: '2-digit' 
+        minute: '2-digit',
+        hour12: false
     });
 }
 
@@ -134,7 +114,7 @@ function updateDataTable() {
     const tableBody = document.getElementById('dataTableBody');
     
     if (state.dataHistory.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #999;">Tunggu data masuk...</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #999;">Tunggu data masuk...</td></tr>';
         return;
     }
 
@@ -144,8 +124,6 @@ function updateDataTable() {
         <tr>
             <td>${formatTime(data.timestamp)}</td>
             <td>${data.temperature.toFixed(2)}</td>
-            <td>${data.humidity.toFixed(2)}</td>
-            <td>${data.pH.toFixed(2)}</td>
             <td>${data.turbidity.toFixed(2)}</td>
         </tr>
     `).join('');
@@ -180,8 +158,6 @@ function processNewData(data) {
     localStorage.setItem('sensorHistory', JSON.stringify(state.dataHistory));
 
     updateSensorCard('temp', data.temperature.toFixed(2), 'temperature');
-    updateSensorCard('humidity', data.humidity.toFixed(2), 'humidity');
-    updateSensorCard('ph', data.pH.toFixed(2), 'pH');
     updateSensorCard('turbidity', data.turbidity.toFixed(2), 'turbidity');
     
     updateDataTable();
@@ -239,8 +215,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 localStorage.removeItem('sensorHistory');
                 
                 document.getElementById('tempValue').textContent = '--';
-                document.getElementById('humidityValue').textContent = '--';
-                document.getElementById('phValue').textContent = '--';
                 document.getElementById('turbidityValue').textContent = '--';
                 
                 updateDataTable();
@@ -268,8 +242,6 @@ function loadDataFromStorage() {
                 state.currentData = lastData;
                 
                 updateSensorCard('temp', lastData.temperature.toFixed(2), 'temperature');
-                updateSensorCard('humidity', lastData.humidity.toFixed(2), 'humidity');
-                updateSensorCard('ph', lastData.pH.toFixed(2), 'pH');
                 updateSensorCard('turbidity', lastData.turbidity.toFixed(2), 'turbidity');
                 
                 updateDataTable();
