@@ -216,6 +216,7 @@ function createSparkline(elementId, data) {
     const width = container.clientWidth;
     const height = container.clientHeight;
     const padding = { top: 18, right: 12, bottom: 30, left: 38 };
+    const chartColor = getComputedStyle(document.documentElement).getPropertyValue('--primary-color').trim() || '#256f4a';
 
     if (data.length < 2) return;
 
@@ -244,7 +245,7 @@ function createSparkline(elementId, data) {
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
     path.setAttribute('points', pathData);
     path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', '#16a34a');
+    path.setAttribute('stroke', chartColor);
     path.setAttribute('stroke-width', '3');
     path.setAttribute('stroke-linecap', 'round');
     path.setAttribute('stroke-linejoin', 'round');

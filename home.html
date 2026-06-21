@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart-Bior - Monitoring Spirulina Otomatis</title>
+    <style>
+        :root {
+            --bg: #f7f8f3;
+            --surface: #ffffff;
+            --ink: #1f3328;
+            --muted: #637568;
+            --line: #dfe7dd;
+            --green: #256f4a;
+            --green-dark: #174a33;
+            --mint: #e8f4ec;
+            --gold: #b18a3d;
+            --shadow: 0 18px 48px rgba(31, 51, 40, 0.12);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--ink);
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            line-height: 1.6;
+        }
+
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        .nav {
+            align-items: center;
+            background: rgba(247, 248, 243, 0.86);
+            border-bottom: 1px solid rgba(223, 231, 221, 0.82);
+            backdrop-filter: blur(14px);
+            display: flex;
+            gap: 24px;
+            justify-content: space-between;
+            left: 0;
+            padding: 16px clamp(18px, 4vw, 56px);
+            position: fixed;
+            right: 0;
+            top: 0;
+            z-index: 20;
+        }
+
+        .brand {
+            align-items: center;
+            display: flex;
+            font-size: 1.08rem;
+            font-weight: 800;
+            gap: 10px;
+            letter-spacing: -0.02em;
+        }
+
+        .brand-mark {
+            background: var(--green);
+            border-radius: 9px;
+            display: grid;
+            height: 32px;
+            place-items: center;
+            width: 32px;
+        }
+
+        .brand-mark svg {
+            height: 19px;
+            stroke: white;
+            width: 19px;
+        }
+
+        .nav-links {
+            align-items: center;
+            display: flex;
+            gap: 24px;
+            font-size: 0.92rem;
+            color: var(--muted);
+        }
+
+        .nav-links a:hover {
+            color: var(--green-dark);
+        }
+
+        .nav-cta,
+        .btn-primary {
+            background: var(--green);
+            border-radius: 999px;
+            color: white;
+            font-weight: 700;
+            padding: 10px 18px;
+        }
+
+        .nav-cta:hover,
+        .btn-primary:hover {
+            background: var(--green-dark);
+        }
+
+        .hero {
+            align-items: end;
+            display: flex;
+            min-height: 92vh;
+            padding: 132px clamp(20px, 5vw, 70px) 68px;
+            position: relative;
+            overflow: hidden;
+            color: white;
+        }
+
+        .hero::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                url("https://www.togethair.it/wp-content/uploads/2024/07/Microalga-Spirulina.jpg") center 35% / cover no-repeat;
+            transform: scale(1.03);
+            filter: saturate(1.18) contrast(1.08) brightness(0.98);
+        }
+
+        .hero::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                linear-gradient(90deg, rgba(12, 28, 19, 0.92) 0%, rgba(12, 28, 19, 0.6) 48%, rgba(12, 28, 19, 0.18) 100%),
+                linear-gradient(180deg, rgba(8, 16, 12, 0.18) 0%, rgba(8, 16, 12, 0.32) 100%);
+        }
+
+        .hero > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero-content {
+            max-width: 720px;
+        }
+
+        .eyebrow {
+            color: #bfe9cc;
+            display: inline-flex;
+            font-size: 0.78rem;
+            font-weight: 800;
+            letter-spacing: 0.16em;
+            margin-bottom: 18px;
+            text-transform: uppercase;
+        }
+
+        h1 {
+            font-size: clamp(2.65rem, 6vw, 5.6rem);
+            letter-spacing: -0.055em;
+            line-height: 0.98;
+            max-width: 760px;
+        }
+
+        .lead {
+            color: rgba(255, 255, 255, 0.84);
+            font-size: clamp(1.02rem, 2vw, 1.22rem);
+            margin-top: 24px;
+            max-width: 610px;
+        }
+
+        .hero-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 34px;
+        }
+
+        .btn {
+            align-items: center;
+            border: 1px solid transparent;
+            border-radius: 999px;
+            display: inline-flex;
+            font-weight: 800;
+            justify-content: center;
+            min-height: 46px;
+            padding: 12px 20px;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.3);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.18);
+        }
+
+        main {
+            overflow: hidden;
+        }
+
+        .section {
+            padding: 78px clamp(20px, 5vw, 70px);
+        }
+
+        .section-inner {
+            margin: 0 auto;
+            max-width: 1120px;
+        }
+
+        .section-heading {
+            margin-bottom: 28px;
+            max-width: 650px;
+        }
+
+        .section-heading h2 {
+            font-size: clamp(2rem, 4vw, 3.2rem);
+            letter-spacing: -0.04em;
+            line-height: 1.05;
+            margin-top: 10px;
+        }
+
+        .section-heading p {
+            color: var(--muted);
+            font-size: 1rem;
+            margin-top: 14px;
+        }
+
+        .grid {
+            display: grid;
+            gap: 18px;
+        }
+
+        .grid-3 {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .grid-2 {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 24px;
+        }
+
+        .card-icon {
+            align-items: center;
+            background: var(--mint);
+            border-radius: 8px;
+            color: var(--green-dark);
+            display: inline-flex;
+            font-weight: 900;
+            height: 38px;
+            justify-content: center;
+            margin-bottom: 18px;
+            width: 38px;
+        }
+
+        .card h3 {
+            font-size: 1.12rem;
+            margin-bottom: 8px;
+        }
+
+        .card p,
+        .step p {
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+
+        .band {
+            background: var(--green-dark);
+            color: white;
+        }
+
+        .band .section-heading p,
+        .band .step p {
+            color: rgba(255, 255, 255, 0.72);
+        }
+
+        .steps {
+            counter-reset: step;
+            display: grid;
+            gap: 16px;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+
+        .step {
+            border-left: 1px solid rgba(255, 255, 255, 0.22);
+            padding-left: 18px;
+        }
+
+        .step::before {
+            color: #9ed6ad;
+            content: "0" counter(step);
+            counter-increment: step;
+            display: block;
+            font-weight: 900;
+            margin-bottom: 12px;
+        }
+
+        .step h3 {
+            font-size: 1rem;
+            margin-bottom: 6px;
+        }
+
+        .specs {
+            background: white;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            overflow: hidden;
+        }
+
+        .spec {
+            border-right: 1px solid var(--line);
+            padding: 24px;
+        }
+
+        .spec:last-child {
+            border-right: 0;
+        }
+
+        .spec strong {
+            color: var(--green-dark);
+            display: block;
+            font-size: clamp(1.35rem, 3vw, 2rem);
+            letter-spacing: -0.04em;
+            line-height: 1;
+            margin-bottom: 8px;
+        }
+
+        .spec span {
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+
+        .cta {
+            align-items: center;
+            background: linear-gradient(135deg, #ecf6ef, #ffffff);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            display: grid;
+            gap: 24px;
+            grid-template-columns: 1fr auto;
+            padding: clamp(26px, 5vw, 42px);
+        }
+
+        .cta h2 {
+            font-size: clamp(1.7rem, 3vw, 2.5rem);
+            letter-spacing: -0.04em;
+            line-height: 1.1;
+        }
+
+        .cta p {
+            color: var(--muted);
+            margin-top: 10px;
+            max-width: 620px;
+        }
+
+        .cta .btn {
+            justify-self: end;
+            min-width: 158px;
+            width: fit-content;
+            white-space: nowrap;
+        }
+
+        footer {
+            border-top: 1px solid var(--line);
+            color: var(--muted);
+            font-size: 0.9rem;
+            padding: 26px clamp(20px, 5vw, 70px);
+        }
+
+        footer .section-inner {
+            align-items: center;
+            display: flex;
+            gap: 18px;
+            justify-content: space-between;
+        }
+
+        @media (max-width: 860px) {
+            .nav-links a:not(.nav-cta) {
+                display: none;
+            }
+
+            .hero {
+                min-height: 86vh;
+            }
+
+            .hero::before {
+                background-position: center top;
+            }
+
+            .grid-3,
+            .grid-2,
+            .steps,
+            .specs,
+            .cta {
+                grid-template-columns: 1fr;
+            }
+
+            .cta .btn {
+                justify-self: start;
+                width: auto;
+            }
+
+            .spec {
+                border-bottom: 1px solid var(--line);
+                border-right: 0;
+            }
+
+            .spec:last-child {
+                border-bottom: 0;
+            }
+
+            footer .section-inner {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav" aria-label="Navigasi utama">
+        <a class="brand" href="#top">
+            <span class="brand-mark" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M20 4C10 4 4 10 4 20c10 0 16-6 16-16Z" stroke-width="1.7"/>
+                    <path d="M5 19C9 13 14 9 18 7" stroke-width="1.7" stroke-linecap="round"/>
+                </svg>
+            </span>
+            Smart-Bior
+        </a>
+        <div class="nav-links">
+            <a href="#solusi">Solusi</a>
+            <a href="#fitur">Fitur</a>
+            <a href="#spesifikasi">Spesifikasi</a>
+            <a href="index.html" class="nav-cta">Buka Dashboard</a>
+        </div>
+    </nav>
+
+    <header class="hero" id="top">
+        <div class="hero-content">
+            <span class="eyebrow">Monitoring Spirulina Realtime</span>
+            <h1>Budidaya mikroalga yang lebih terukur.</h1>
+            <p class="lead">Smart-Bior memantau Optical Density dan suhu kultur secara otomatis, membantu operator membaca tren pertumbuhan dan merespons risiko culture crash lebih cepat.</p>
+            <div class="hero-actions">
+                <a class="btn btn-primary" href="index.html">Buka Dashboard</a>
+                <a class="btn btn-secondary" href="#spesifikasi">Lihat Spesifikasi</a>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <section class="section" id="solusi">
+            <div class="section-inner">
+                <div class="section-heading">
+                    <span class="eyebrow">Masalah & Solusi</span>
+                    <h2>Dari pengamatan manual ke data yang siap dipantau.</h2>
+                    <p>Metode manual seperti pengamatan visual dan pengambilan sampel laboratorium sering lambat, subjektif, dan sulit dilakukan terus-menerus. Smart-Bior merapikannya menjadi pembacaan sensor yang tersimpan otomatis.</p>
+                </div>
+                <div class="grid grid-3">
+                    <article class="card">
+                        <span class="card-icon">01</span>
+                        <h3>Pengukuran objektif</h3>
+                        <p>Data OD dibaca dari sensor optik, bukan hanya warna kultur yang dinilai secara visual.</p>
+                    </article>
+                    <article class="card">
+                        <span class="card-icon">02</span>
+                        <h3>Realtime dashboard</h3>
+                        <p>Nilai terbaru dan riwayat pengukuran tampil di dashboard web untuk pemantauan harian.</p>
+                    </article>
+                    <article class="card">
+                        <span class="card-icon">03</span>
+                        <h3>Lebih terjangkau</h3>
+                        <p>Dirancang sebagai alternatif praktis untuk pemantauan rutin tanpa instrumen lab yang mahal.</p>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section class="section band" id="fitur">
+            <div class="section-inner">
+                <div class="section-heading">
+                    <span class="eyebrow">Fitur Utama</span>
+                    <h2>Ringkas, otomatis, dan mudah dibaca.</h2>
+                </div>
+                <div class="grid grid-2">
+                    <article class="card">
+                        <span class="card-icon">OD</span>
+                        <h3>Optical Density</h3>
+                        <p>Memantau kepadatan kultur Spirulina sebagai indikator pertumbuhan biomassa.</p>
+                    </article>
+                    <article class="card">
+                        <span class="card-icon">IoT</span>
+                        <h3>Firebase Realtime</h3>
+                        <p>Data dari perangkat dikirim ke Firebase dan dibaca langsung oleh dashboard web.</p>
+                    </article>
+                    <article class="card">
+                        <span class="card-icon">°C</span>
+                        <h3>Suhu Kultur</h3>
+                        <p>Nilai suhu ditampilkan bersama OD agar kondisi kultur lebih mudah dievaluasi.</p>
+                    </article>
+                    <article class="card">
+                        <span class="card-icon">UI</span>
+                        <h3>Riwayat Data</h3>
+                        <p>Grafik dan tabel membantu melihat pola perubahan dari waktu ke waktu.</p>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="section-inner">
+                <div class="section-heading">
+                    <span class="eyebrow">Alur Kerja</span>
+                    <h2>Empat langkah pemantauan.</h2>
+                </div>
+                <div class="steps">
+                    <div class="step">
+                        <h3>Sensor membaca kultur</h3>
+                        <p>Perangkat mengambil nilai OD dan suhu dari sistem bioreaktor.</p>
+                    </div>
+                    <div class="step">
+                        <h3>Data dikirim ke cloud</h3>
+                        <p>ESP32 mengirim data ke Firebase Realtime Database.</p>
+                    </div>
+                    <div class="step">
+                        <h3>Dashboard menerima event</h3>
+                        <p>Halaman web memperbarui tampilan saat data Firebase berubah.</p>
+                    </div>
+                    <div class="step">
+                        <h3>Operator membaca tren</h3>
+                        <p>Riwayat dan grafik digunakan untuk mengambil keputusan budidaya.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section" id="spesifikasi">
+            <div class="section-inner">
+                <div class="section-heading">
+                    <span class="eyebrow">Spesifikasi Ringkas</span>
+                    <h2>Parameter yang paling penting.</h2>
+                </div>
+                <div class="specs">
+                    <div class="spec">
+                        <strong>OD</strong>
+                        <span>Indikator kepadatan kultur mikroalga.</span>
+                    </div>
+                    <div class="spec">
+                        <strong>ESP32</strong>
+                        <span>Kontroler IoT untuk pengiriman data sensor.</span>
+                    </div>
+                    <div class="spec">
+                        <strong>Firebase</strong>
+                        <span>Database realtime untuk update tanpa refresh manual.</span>
+                    </div>
+                    <div class="spec">
+                        <strong>Web</strong>
+                        <span>Dashboard monitoring berbasis browser.</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="section-inner">
+                <div class="cta">
+                    <div>
+                        <h2>Siap melihat data live?</h2>
+                        <p>Masuk ke dashboard untuk melihat nilai OD, suhu, grafik riwayat, dan tabel data terbaru.</p>
+                    </div>
+                    <a class="btn btn-primary" href="index.html">Buka Dashboard</a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="section-inner">
+            <span>Smart-Bior Monitoring System</span>
+            <span>Dashboard: <a href="index.html">index.html</a></span>
+        </div>
+    </footer>
+</body>
+</html>
