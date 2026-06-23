@@ -16,6 +16,11 @@ const state = {
     currentData: null,
     firebaseData: null,
     firebaseRef: null,
+    calibrationRef: null,
+    calibrationClearTimer: null,
+    calibrationActivated: false,
+    calibrationLastPhase: null,
+    firebaseDb: null,
     updateCount: 0
 };
 
@@ -410,7 +415,8 @@ function initializeFirebase() {
         firebase.initializeApp(firebaseConfig);
     }
 
-    return firebase.database();
+    state.firebaseDb = firebase.database();
+    return state.firebaseDb;
 }
 
 function disconnectFirebase() {
@@ -418,6 +424,255 @@ function disconnectFirebase() {
         state.firebaseRef.off();
         state.firebaseRef = null;
     }
+
+    if (state.calibrationRef) {
+        state.calibrationRef.off();
+        state.calibrationRef = null;
+    }
+}
+
+function setCalibrationStatus(text, tone = 'neutral') {
+    const statusEl = document.getElementById('calibrationStatus');
+    if (!statusEl) return;
+
+    if (state.calibrationClearTimer) {
+        clearTimeout(state.calibrationClearTimer);
+        state.calibrationClearTimer = null;
+    }
+
+    if (!text) {
+        statusEl.textContent = '';
+        statusEl.classList.remove('is-visible');
+        statusEl.setAttribute('aria-hidden', 'true');
+        statusEl.dataset.tone = tone;
+        statusEl.classList.remove('is-loading');
+        return;
+    }
+
+    statusEl.classList.add('is-visible');
+    statusEl.setAttribute('aria-hidden', 'false');
+    statusEl.textContent = text;
+    statusEl.dataset.tone = tone;
+    statusEl.classList.toggle('is-loading', tone === 'warning');
+}
+
+function clearCalibrationStatusLater(delay = 1800) {
+    const statusEl = document.getElementById('calibrationStatus');
+    if (!statusEl) return;
+
+    if (state.calibrationClearTimer) {
+        clearTimeout(state.calibrationClearTimer);
+    }
+
+    state.calibrationClearTimer = setTimeout(() => {
+        setCalibrationStatus('', 'neutral');
+    }, delay);
+}
+
+function openConfirmModal(message) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('confirmModal');
+        const messageEl = document.getElementById('confirmModalMessage');
+        const cancelBtn = document.getElementById('confirmModalCancel');
+        const confirmBtn = document.getElementById('confirmModalConfirm');
+
+        if (!modal || !messageEl || !cancelBtn || !confirmBtn) {
+            resolve(window.confirm(message));
+            return;
+        }
+
+        messageEl.textContent = message;
+        modal.hidden = false;
+
+        const cleanup = () => {
+            modal.hidden = true;
+            confirmBtn.removeEventListener('click', onConfirm);
+            cancelBtn.removeEventListener('click', onCancel);
+            modal.removeEventListener('click', onBackdrop);
+            document.removeEventListener('keydown', onKeydown);
+        };
+
+        const onConfirm = () => {
+            cleanup();
+            resolve(true);
+        };
+
+        const onCancel = () => {
+            cleanup();
+            resolve(false);
+        };
+
+        const onBackdrop = (event) => {
+            if (event.target === modal) {
+                onCancel();
+            }
+        };
+
+        const onKeydown = (event) => {
+            if (event.key === 'Escape') {
+                onCancel();
+            }
+        };
+
+        confirmBtn.addEventListener('click', onConfirm);
+        cancelBtn.addEventListener('click', onCancel);
+        modal.addEventListener('click', onBackdrop);
+        document.addEventListener('keydown', onKeydown);
+        confirmBtn.focus();
+    });
+}
+
+function getCalibrationStatusCopy(statusValue) {
+    switch (statusValue) {
+        case 'pending':
+            return { text: 'Kalibrasi menunggu diproses', tone: 'neutral' };
+        case 'processing':
+            return { text: 'Kalibrasi sedang diproses', tone: 'warning' };
+        case 'done':
+        case 'success':
+            return { text: 'Kalibrasi selesai', tone: 'success' };
+        case 'failed':
+        case 'error':
+            return { text: 'Kalibrasi gagal', tone: 'danger' };
+        case 'idle':
+            return { text: 'Siap kalibrasi', tone: 'neutral' };
+        default:
+            return { text: `Status kalibrasi: ${String(statusValue).replace(/_/g, ' ')}`, tone: 'neutral' };
+    }
+}
+
+function normalizeCalibrationStatusPayload(value) {
+    if (!value) return null;
+    if (typeof value === 'string') {
+        return { status: value };
+    }
+
+    if (typeof value === 'object') {
+        return {
+            status: value.status || value.state || value.action || '',
+            message: value.message || value.note || ''
+        };
+    }
+
+    return null;
+}
+
+function listenToCalibrationStatus() {
+    if (!state.firebaseDb) return;
+
+    if (state.calibrationRef) {
+        state.calibrationRef.off();
+    }
+
+    state.calibrationRef = state.firebaseDb.ref('/bioreactor/commands/calibration/status');
+    state.calibrationRef.on('value', (snapshot) => {
+        const payload = normalizeCalibrationStatusPayload(snapshot.val());
+
+        if (!state.calibrationActivated) {
+            setCalibrationStatus('', 'neutral');
+            return;
+        }
+
+        if (!payload) {
+            if (state.calibrationLastPhase === 'processing') {
+                setCalibrationStatus('Kalibrasi sedang diproses', 'warning');
+            }
+            return;
+        }
+
+        const copy = getCalibrationStatusCopy(payload.status);
+        state.calibrationLastPhase = payload.status || null;
+
+        if (payload.status === 'processing') {
+            setCalibrationStatus(payload.message || copy.text, copy.tone);
+            return;
+        }
+
+        if (payload.status === 'done' || payload.status === 'success') {
+            setCalibrationStatus(payload.message || copy.text, copy.tone);
+            clearCalibrationStatusLater(4000);
+            return;
+        }
+
+        if (payload.status === 'failed' || payload.status === 'error') {
+            setCalibrationStatus(payload.message || copy.text, copy.tone);
+            clearCalibrationStatusLater(4000);
+            return;
+        }
+
+        setCalibrationStatus(payload.message || copy.text, copy.tone);
+    }, (error) => {
+        console.error('[Calibration] Listener gagal:', error);
+        setCalibrationStatus('Gagal memantau status kalibrasi', 'danger');
+    });
+}
+
+async function sendCalibrationCommand() {
+    if (!state.firebaseDb) {
+        setCalibrationStatus('Firebase belum siap', 'danger');
+        return;
+    }
+
+    const shouldSend = await openConfirmModal('Kirim perintah kalibrasi ke alat sekarang?');
+    if (!shouldSend) {
+        setCalibrationStatus('', 'neutral');
+        return;
+    }
+
+    state.calibrationActivated = true;
+    state.calibrationLastPhase = 'pending';
+    setCalibrationStatus('Mengirim perintah...', 'neutral');
+
+    const requestId = `cal_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+    const payload = {
+        action: 'calibration',
+        value: null,
+        note: null,
+        requestedAt: Date.now(),
+        requestId,
+        requestedBy: 'dashboard',
+        status: 'pending'
+    };
+
+    state.firebaseDb.ref('/bioreactor/commands/calibration').set(payload)
+        .then(() => {
+            setCalibrationStatus('Menunggu alat memulai kalibrasi...', 'neutral');
+        })
+        .catch((error) => {
+            console.error('[Calibration] Gagal kirim:', error);
+            setCalibrationStatus('Gagal mengirim kalibrasi', 'danger');
+            clearCalibrationStatusLater(4000);
+        });
+}
+
+function refreshCalibrationStatus() {
+    if (!state.firebaseDb) {
+        if (state.calibrationActivated) {
+            setCalibrationStatus('Firebase belum siap', 'danger');
+        }
+        return;
+    }
+
+    state.firebaseDb.ref('/bioreactor/commands/calibration/status').once('value')
+        .then((snapshot) => {
+            const value = snapshot.val();
+            if (!value) {
+                if (state.calibrationActivated) {
+                    setCalibrationStatus('', 'neutral');
+                }
+                return;
+            }
+
+            const tone = value === 'done' ? 'success' : value === 'failed' ? 'danger' : 'neutral';
+            if (state.calibrationActivated) {
+                setCalibrationStatus(`Status: ${String(value).replace(/_/g, ' ')}`, tone);
+            }
+        })
+        .catch((error) => {
+            console.error('[Calibration] Refresh gagal:', error);
+            setCalibrationStatus('Gagal ambil status', 'danger');
+        });
 }
 
 function connectToFirebase() {
@@ -443,6 +698,8 @@ function connectToFirebase() {
         updateConnectionIndicator(false);
         updateSystemStatus();
     });
+
+    listenToCalibrationStatus();
 
     state.isConnected = true;
     updateConnectionIndicator(true);
@@ -521,11 +778,22 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    const calibrationBtn = document.getElementById('calibrationBtn');
+    if (calibrationBtn) {
+        calibrationBtn.addEventListener('click', sendCalibrationCommand);
+    }
+
     // Load data from localStorage
     loadDataFromStorage();
 
     // Initial UI update
     updateSystemStatus();
+
+    // Auto-connect ke Firebase saat halaman dibuka
+    const connectAutomatically = connectToFirebase();
+    if (!connectAutomatically) {
+        console.warn('Auto-connect Firebase gagal, tombol sambungkan masih bisa dipakai manual.');
+    }
 });
 
 // ==================== LOCAL STORAGE ====================

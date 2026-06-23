@@ -94,7 +94,9 @@
                         <button class="btn btn-secondary" id="startSimulationBtn">▶️ Mulai Simulasi</button>
                         <button class="btn btn-secondary" id="stopSimulationBtn">⏹️ Hentikan Simulasi</button>
                         <button class="btn btn-secondary" id="clearDataBtn">🗑️ Hapus Data</button>
+                        <button class="btn btn-secondary" id="calibrationBtn">🛠️ Kalibrasi Alat</button>
                     </div>
+                    <div class="calibration-status" id="calibrationStatus" aria-hidden="true"></div>
                 </div>
 
                 <div class="status-panel">
@@ -146,6 +148,18 @@
         <footer class="footer">
             <p>Smart BioReactor Monitoring System | ESP32 + Firebase Realtime Database</p>
         </footer>
+    </div>
+
+    <div class="modal-backdrop" id="confirmModal" hidden>
+        <div class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirmModalTitle" aria-describedby="confirmModalMessage">
+            <div class="confirm-modal__icon">🛠️</div>
+            <h4 id="confirmModalTitle">Konfirmasi Kalibrasi</h4>
+            <p id="confirmModalMessage">Kirim perintah kalibrasi ke alat sekarang?</p>
+            <div class="confirm-modal__actions">
+                <button class="btn btn-secondary confirm-modal__cancel" id="confirmModalCancel" type="button">Batal</button>
+                <button class="btn btn-primary confirm-modal__confirm" id="confirmModalConfirm" type="button">Ya, kalibrasi</button>
+            </div>
+        </div>
     </div>
 
     <!-- Scripts -->

@@ -410,6 +410,70 @@ body {
     font-weight: 600;
 }
 
+.calibration-status {
+    display: none;
+    align-items: center;
+    gap: 0.45rem;
+    width: fit-content;
+    font-size: 0.75rem;
+    padding: 0.35rem 0.8rem;
+    border-radius: 999px;
+    background: var(--mint);
+    color: var(--primary-color);
+    border: 1px solid var(--mint-strong);
+    font-weight: 700;
+    margin-top: 0.9rem;
+}
+
+.calibration-status.is-visible {
+    display: inline-flex;
+}
+
+.calibration-status::before {
+    content: '';
+    width: 0.7rem;
+    height: 0.7rem;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.9;
+    flex: 0 0 auto;
+}
+
+.calibration-status.is-loading::before {
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    background: transparent;
+    opacity: 1;
+    animation: calibrationSpin 0.8s linear infinite;
+}
+
+.calibration-status[data-tone="success"] {
+    background: #e6f4ea;
+    color: #256f4a;
+    border-color: #b8ddc6;
+}
+
+.calibration-status[data-tone="warning"] {
+    background: #fff5df;
+    color: #9a6a15;
+    border-color: #eed8a2;
+}
+
+.calibration-status[data-tone="danger"] {
+    background: #fde8e6;
+    color: #b24a3b;
+    border-color: #f2c1bb;
+}
+
+@keyframes calibrationSpin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 .button-group {
     display: flex;
     flex-wrap: wrap;
@@ -560,6 +624,75 @@ body {
     margin-top: auto;
 }
 
+/* ==================== CONFIRM MODAL ==================== */
+.modal-backdrop[hidden] {
+    display: none !important;
+}
+
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(23, 74, 51, 0.28);
+    backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    z-index: 3000;
+}
+
+.confirm-modal {
+    width: min(92vw, 420px);
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    box-shadow: 0 24px 60px rgba(31, 51, 40, 0.22);
+    padding: 1.5rem;
+    text-align: center;
+}
+
+.confirm-modal__icon {
+    width: 3rem;
+    height: 3rem;
+    margin: 0 auto 0.9rem;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    background: var(--mint);
+    color: var(--green-dark);
+    font-size: 1.4rem;
+}
+
+.confirm-modal h4 {
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.confirm-modal p {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    margin-bottom: 1.25rem;
+}
+
+.confirm-modal__actions {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.confirm-modal__actions .btn {
+    min-width: 0;
+    flex: 1;
+}
+
+.confirm-modal__confirm {
+    white-space: nowrap;
+}
+
+.confirm-modal__cancel {
+    white-space: nowrap;
+}
+
 /* ==================== RESPONSIVE ==================== */
 @media (max-width: 768px) {
     .container {
@@ -597,6 +730,10 @@ body {
     }
 
     .button-group {
+        flex-direction: column;
+    }
+
+    .confirm-modal__actions {
         flex-direction: column;
     }
 
