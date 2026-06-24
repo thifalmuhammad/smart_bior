@@ -163,12 +163,29 @@ function normalizeFirebaseHistory(firebasePayload) {
 }
 
 function evaluateStatus(value, sensorType) {
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue)) {
+        return { status: 'warning', badge: '⚠ Menunggu data' };
+    }
+
+    if (sensorType === 'turbidity') {
+        if (numericValue < 0.8) {
+            return { status: 'warning', badge: '⚠ Belum siap panen' };
+        }
+
+        if (numericValue <= 1.2) {
+            return { status: 'good', badge: '✓ Siap panen' };
+        }
+
+        return { status: 'danger', badge: '✗ Kultur overpopulasi' };
+    }
+
     const range = CONFIG.SENSOR_RANGES[sensorType];
     const ideal = range.ideal;
 
-    if (value >= ideal[0] && value <= ideal[1]) {
+    if (numericValue >= ideal[0] && numericValue <= ideal[1]) {
         return { status: 'good', badge: '✓ Optimal' };
-    } else if (value >= range.min && value <= range.max) {
+    } else if (numericValue >= range.min && numericValue <= range.max) {
         return { status: 'warning', badge: '⚠ Hati-hati' };
     } else {
         return { status: 'danger', badge: '✗ Abnormal' };
