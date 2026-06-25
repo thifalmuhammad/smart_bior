@@ -59,7 +59,10 @@
                 <div class="chart-card">
                     <div class="chart-header">
                         <h3>Riwayat Suhu</h3>
-                        <span class="unit">°C</span>
+                        <div class="chart-tools">
+                            <span class="unit">°C</span>
+                            <button class="chart-tool-btn" id="resetTempZoomBtn" type="button" title="Reset zoom">↺</button>
+                        </div>
                     </div>
                     <div class="sparkline" id="tempChart">
                         <span class="chart-empty">Menunggu data...</span>
@@ -73,7 +76,10 @@
                 <div class="chart-card">
                     <div class="chart-header">
                         <h3>Riwayat Optical Density</h3>
-                        <span class="unit">OD</span>
+                        <div class="chart-tools">
+                            <span class="unit">OD</span>
+                            <button class="chart-tool-btn" id="resetTurbidityZoomBtn" type="button" title="Reset zoom">↺</button>
+                        </div>
                     </div>
                     <div class="sparkline" id="turbidityChart">
                         <span class="chart-empty">Menunggu data...</span>
@@ -140,6 +146,11 @@
                             </tr>
                         </tbody>
                     </table>
+                </div>
+                <div class="table-pagination">
+                    <button class="btn btn-secondary table-page-btn" id="tablePrevBtn" type="button">← Sebelumnya</button>
+                    <span class="table-page-info" id="tablePageInfo">0 data</span>
+                    <button class="btn btn-secondary table-page-btn" id="tableNextBtn" type="button">Berikutnya →</button>
                 </div>
             </div>
         </main>

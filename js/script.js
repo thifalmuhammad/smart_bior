@@ -1,7 +1,8 @@
 // ==================== CONFIG & CONSTANTS ====================
 const CONFIG = {
     UPDATE_INTERVAL: 2000, // milliseconds
-    DATA_HISTORY_LENGTH: 100,
+    CHART_HISTORY_LENGTH: 100,
+    TABLE_ROWS_PER_PAGE: 10,
     SENSOR_RANGES: {
         temperature: { min: 20, max: 40, ideal: [25, 35] },
         turbidity: { min: 0, max: 100, ideal: [0, 10] }
@@ -13,6 +14,7 @@ const state = {
     isConnected: false,
     isSimulating: false,
     dataHistory: [],
+    fullHistory: [],
     currentData: null,
     firebaseData: null,
     firebaseRef: null,
@@ -21,7 +23,16 @@ const state = {
     calibrationActivated: false,
     calibrationLastPhase: null,
     firebaseDb: null,
-    updateCount: 0
+    updateCount: 0,
+    tablePage: 1,
+    chartView: {
+        temp: { start: 0, end: 1 },
+        turbidity: { start: 0, end: 1 }
+    },
+    chartDrag: {
+        temp: null,
+        turbidity: null
+    }
 };
 
 // ==================== DUMMY DATA GENERATOR ====================
@@ -115,6 +126,20 @@ function formatChartTime(date, chartWidth) {
     return `${month}-${day} ${hours}:${minutes}:${seconds}`;
 }
 
+function formatChartTimestampWithDate(date) {
+    date = normalizeDate(date);
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+        return '--';
+    }
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}`;
+}
+
 function normalizeTimestamp(timestamp) {
     const numericTimestamp = Number(timestamp);
 
@@ -123,6 +148,17 @@ function normalizeTimestamp(timestamp) {
     }
 
     return new Date(numericTimestamp < 10000000000 ? numericTimestamp * 1000 : numericTimestamp);
+}
+
+function isValidHistoryTimestamp(timestamp) {
+    const raw = String(timestamp ?? '').trim();
+    if (!raw) return false;
+
+    const numeric = Number(raw);
+    if (!Number.isFinite(numeric)) return false;
+
+    // Reject short / malformed timestamps, for example 2-digit values.
+    return raw.length >= 10 || numeric >= 1000000000;
 }
 
 function normalizeSensorReading(reading, fallbackTimestamp) {
@@ -156,10 +192,46 @@ function normalizeFirebaseHistory(firebasePayload) {
         : Object.entries(historyPayload);
 
     return historyEntries
+        .filter(([timestampKey]) => isValidHistoryTimestamp(timestampKey))
         .map(([timestampKey, reading]) => normalizeSensorReading(reading, timestampKey))
         .filter(Boolean)
         .sort((a, b) => a.timestamp - b.timestamp)
-        .slice(-CONFIG.DATA_HISTORY_LENGTH);
+        ;
+}
+
+function collectInvalidHistoryPaths(firebasePayload) {
+    if (!firebasePayload) return [];
+
+    const candidates = [
+        { basePath: '/history', payload: firebasePayload.history },
+        { basePath: '/bioreactor/history', payload: firebasePayload.bioreactor?.history },
+        { basePath: '/smart-bior/history', payload: firebasePayload['smart-bior']?.history }
+    ];
+
+    const invalidPaths = [];
+
+    candidates.forEach(({ basePath, payload }) => {
+        if (!payload || typeof payload !== 'object') return;
+
+        Object.keys(payload).forEach((timestampKey) => {
+            if (!isValidHistoryTimestamp(timestampKey)) {
+                invalidPaths.push(`${basePath}/${timestampKey}`);
+            }
+        });
+    });
+
+    return invalidPaths;
+}
+
+async function cleanupInvalidFirebaseHistory(firebasePayload) {
+    if (!state.firebaseDb) return;
+
+    const invalidPaths = collectInvalidHistoryPaths(firebasePayload);
+    if (invalidPaths.length === 0) return;
+
+    await Promise.allSettled(
+        invalidPaths.map((path) => state.firebaseDb.ref(path).remove())
+    );
 }
 
 function evaluateStatus(value, sensorType) {
@@ -228,39 +300,58 @@ function updateSensorCard(sensorName, value, sensorType) {
     }
 
     // Create sparkline chart
-    createSparkline(`${sensorName}Chart`, history);
+    const chartHistorySource = state.fullHistory.length > 0 ? state.fullHistory : state.dataHistory;
+    const chartSeries = chartHistorySource
+        .map((entry) => ({
+            value: Number(entry?.[sensorType]),
+            timestamp: entry?.timestamp
+        }))
+        .filter((point) => Number.isFinite(point.value) && point.timestamp);
+    createSparkline(`${sensorName}Chart`, chartSeries, sensorName);
 }
 
-function createSparkline(elementId, data) {
+function createSparkline(elementId, series, chartKey = null) {
     const container = document.getElementById(elementId);
-    if (!container || data.length === 0) return;
+    if (!container || series.length === 0) return;
 
     const width = container.clientWidth;
     const height = container.clientHeight;
     const padding = { top: 18, right: 12, bottom: 30, left: 38 };
     const chartColor = getComputedStyle(document.documentElement).getPropertyValue('--primary-color').trim() || '#256f4a';
+    const isZoomed = chartKey ? getChartLabelMode(chartKey) === 'zoomed' : false;
 
-    if (data.length < 2) return;
+    if (series.length < 2) return;
 
     container.innerHTML = '';
+
+    const baseWidth = Math.max(width, 320);
+    const baseHeight = Math.max(height, 180);
 
     // Create SVG
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('width', '100%');
     svg.setAttribute('height', '100%');
-    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    svg.setAttribute('viewBox', `0 0 ${baseWidth} ${baseHeight}`);
     svg.setAttribute('preserveAspectRatio', 'none');
 
+    const viewState = chartKey ? (state.chartView[chartKey] || { start: 0, end: 1 }) : { start: 0, end: 1 };
+    const totalPoints = series.length;
+    const visibleStart = Math.max(0, Math.min(totalPoints - 2, Math.floor(viewState.start * (totalPoints - 1))));
+    const visibleEnd = Math.max(visibleStart + 2, Math.min(totalPoints, Math.ceil(viewState.end * totalPoints)));
+    const visibleSeries = series.slice(visibleStart, visibleEnd);
+    if (visibleSeries.length < 2) return;
+
     // Find min/max
-    const min = Math.min(...data);
-    const max = Math.max(...data);
+    const values = visibleSeries.map((point) => point.value);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
     const range = max - min || 1;
 
     // Create path
     let pathData = '';
-    data.forEach((value, index) => {
-        const x = (index / (data.length - 1)) * (width - padding.left - padding.right) + padding.left;
-        const y = height - padding.bottom - ((value - min) / range) * (height - padding.top - padding.bottom);
+    visibleSeries.forEach((point, index) => {
+        const x = (index / (visibleSeries.length - 1)) * (baseWidth - padding.left - padding.right) + padding.left;
+        const y = baseHeight - padding.bottom - ((point.value - min) / range) * (baseHeight - padding.top - padding.bottom);
         pathData += `${x},${y} `;
     });
 
@@ -273,13 +364,84 @@ function createSparkline(elementId, data) {
     path.setAttribute('stroke-linejoin', 'round');
 
     svg.appendChild(path);
+
+    if (isZoomed) {
+        const tickCount = Math.min(4, visibleSeries.length);
+        const tickIndexes = Array.from({ length: tickCount }, (_, index) => {
+            if (tickCount === 1) return 0;
+            return Math.round((index / (tickCount - 1)) * (visibleSeries.length - 1));
+        });
+
+        tickIndexes.forEach((tickIndex) => {
+            const point = visibleSeries[tickIndex];
+            const x = (tickIndex / (visibleSeries.length - 1)) * (baseWidth - padding.left - padding.right) + padding.left;
+            const tick = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            tick.setAttribute('x1', x);
+            tick.setAttribute('x2', x);
+            tick.setAttribute('y1', baseHeight - padding.bottom - 2);
+            tick.setAttribute('y2', baseHeight - padding.bottom + 5);
+            tick.setAttribute('stroke', chartColor);
+            tick.setAttribute('stroke-width', '1.5');
+            svg.appendChild(tick);
+
+            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            label.setAttribute('x', x);
+            label.setAttribute('y', baseHeight - 12);
+            label.setAttribute('text-anchor', 'middle');
+            label.setAttribute('fill', getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim() || '#637568');
+            label.setAttribute('font-size', '10');
+            label.textContent = formatChartTime(point.timestamp, 500);
+            svg.appendChild(label);
+        });
+    } else {
+        const tickCount = Math.min(4, visibleSeries.length);
+        const tickIndexes = Array.from({ length: tickCount }, (_, index) => {
+            if (tickCount === 1) return 0;
+            return Math.round((index / (tickCount - 1)) * (visibleSeries.length - 1));
+        });
+
+        tickIndexes.forEach((tickIndex) => {
+            const point = visibleSeries[tickIndex];
+            const x = (tickIndex / (visibleSeries.length - 1)) * (baseWidth - padding.left - padding.right) + padding.left;
+            const tick = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            tick.setAttribute('x1', x);
+            tick.setAttribute('x2', x);
+            tick.setAttribute('y1', baseHeight - padding.bottom - 2);
+            tick.setAttribute('y2', baseHeight - padding.bottom + 5);
+            tick.setAttribute('stroke', chartColor);
+            tick.setAttribute('stroke-width', '1.5');
+            svg.appendChild(tick);
+
+            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            label.setAttribute('x', x);
+            label.setAttribute('y', baseHeight - 12);
+            label.setAttribute('text-anchor', 'middle');
+            label.setAttribute('fill', getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim() || '#637568');
+            label.setAttribute('font-size', '10');
+            label.textContent = formatChartTimestampWithDate(point.timestamp);
+            svg.appendChild(label);
+        });
+    }
+
     container.appendChild(svg);
 
-    const timestamps = state.dataHistory.slice(-data.length).map(item => item.timestamp);
+    if (chartKey && state.chartDrag[chartKey]) {
+        const dragState = state.chartDrag[chartKey];
+        const selection = document.createElement('div');
+        selection.className = 'chart-selection';
+        const left = Math.min(dragState.startX, dragState.currentX);
+        const right = Math.max(dragState.startX, dragState.currentX);
+        selection.style.left = `${left}px`;
+        selection.style.width = `${Math.max(0, right - left)}px`;
+        container.appendChild(selection);
+        container.classList.add('is-dragging');
+    } else {
+        container.classList.remove('is-dragging');
+    }
+
+    const shouldShowShortTime = chartKey && getChartLabelMode(chartKey) === 'zoomed';
     addChartLabel(container, 'chart-label-y-max', max.toFixed(2));
     addChartLabel(container, 'chart-label-y-min', min.toFixed(2));
-    addChartLabel(container, 'chart-label-x-start', formatChartTime(timestamps[0], width));
-    addChartLabel(container, 'chart-label-x-end', formatChartTime(timestamps[timestamps.length - 1], width));
 }
 
 function addChartLabel(container, className, text) {
@@ -296,26 +458,146 @@ function resetCharts() {
             chart.innerHTML = '<span class="chart-empty">Menunggu data...</span>';
         }
     });
+
+    state.chartView.temp = { start: 0, end: 1 };
+    state.chartView.turbidity = { start: 0, end: 1 };
+    state.chartDrag.temp = null;
+    state.chartDrag.turbidity = null;
+}
+
+function getChartLabelMode(chartKey) {
+    const viewState = state.chartView[chartKey];
+    return viewState && (viewState.start > 0 || viewState.end < 1) ? 'zoomed' : 'full';
+}
+
+function attachChartInteractions() {
+    ['tempChart', 'turbidityChart'].forEach((chartId) => {
+        const container = document.getElementById(chartId);
+        if (!container || container.dataset.zoomBound === 'true') return;
+
+        container.dataset.zoomBound = 'true';
+
+        const chartKey = chartId === 'tempChart' ? 'temp' : 'turbidity';
+
+        container.addEventListener('pointerdown', (event) => {
+            if (event.button !== 0) return;
+            const rect = container.getBoundingClientRect();
+            const startX = Math.max(0, Math.min(rect.width, event.clientX - rect.left));
+            state.chartDrag[chartKey] = {
+                startX,
+                currentX: startX,
+                rectWidth: rect.width
+            };
+            container.setPointerCapture(event.pointerId);
+        });
+
+        container.addEventListener('pointermove', (event) => {
+            const dragState = state.chartDrag[chartKey];
+            if (!dragState) return;
+            const rect = container.getBoundingClientRect();
+            dragState.currentX = Math.max(0, Math.min(rect.width, event.clientX - rect.left));
+            updateChartsOnly();
+        });
+
+        container.addEventListener('pointerup', (event) => {
+            const dragState = state.chartDrag[chartKey];
+            if (!dragState) return;
+
+            const rect = container.getBoundingClientRect();
+            const endX = Math.max(0, Math.min(rect.width, event.clientX - rect.left));
+            const minX = Math.min(dragState.startX, endX);
+            const maxX = Math.max(dragState.startX, endX);
+
+            state.chartDrag[chartKey] = null;
+            if (container.hasPointerCapture(event.pointerId)) {
+                container.releasePointerCapture(event.pointerId);
+            }
+
+            if (Math.abs(maxX - minX) < 12) {
+                return;
+            }
+
+            const stateRange = state.chartView[chartKey];
+            const startRatio = minX / rect.width;
+            const endRatio = maxX / rect.width;
+            stateRange.start = Math.max(0, Math.min(1, startRatio));
+            stateRange.end = Math.max(stateRange.start + 0.1, Math.min(1, endRatio));
+            updateChartsOnly();
+        });
+
+        container.addEventListener('pointerleave', () => {
+            state.chartDrag[chartKey] = null;
+            updateChartsOnly();
+        });
+
+        container.addEventListener('pointercancel', () => {
+            state.chartDrag[chartKey] = null;
+            updateChartsOnly();
+        });
+
+        container.title = 'Klik-drag untuk zoom, tombol reset untuk kembali';
+    });
+}
+
+function resetChartZoom(chartKey) {
+    state.chartView[chartKey] = { start: 0, end: 1 };
+    state.chartDrag[chartKey] = null;
+    updateChartsOnly();
+}
+
+function updateChartsOnly() {
+    const sourceHistory = state.fullHistory.length > 0 ? state.fullHistory : state.dataHistory;
+    if (!sourceHistory.length) return;
+
+    ['temp', 'turbidity'].forEach((sensorType) => {
+        const chartId = `${sensorType}Chart`;
+        const chartSeries = sourceHistory
+            .map((entry) => ({
+                value: Number(entry?.[sensorType === 'temp' ? 'temperature' : sensorType]),
+                timestamp: entry?.timestamp
+            }))
+            .filter((point) => Number.isFinite(point.value) && point.timestamp);
+        createSparkline(chartId, chartSeries, sensorType);
+    });
 }
 
 function updateDataTable() {
     const tableBody = document.getElementById('dataTableBody');
+    const tableInfo = document.getElementById('tablePageInfo');
+    const tablePrevBtn = document.getElementById('tablePrevBtn');
+    const tableNextBtn = document.getElementById('tableNextBtn');
+    const sourceHistory = state.fullHistory.length > 0 ? state.fullHistory : state.dataHistory;
     
-    if (state.dataHistory.length === 0) {
+    if (sourceHistory.length === 0) {
         tableBody.innerHTML = '<tr><td colspan="3" class="no-data">Tunggu data masuk...</td></tr>';
+        if (tableInfo) tableInfo.textContent = '0 data';
+        if (tablePrevBtn) tablePrevBtn.disabled = true;
+        if (tableNextBtn) tableNextBtn.disabled = true;
         return;
     }
 
-    // Show last 10 entries
-    const recentData = state.dataHistory.slice(-10).reverse();
+    const totalPages = Math.max(1, Math.ceil(sourceHistory.length / CONFIG.TABLE_ROWS_PER_PAGE));
+    state.tablePage = Math.min(state.tablePage, totalPages);
+    const startIndex = sourceHistory.length - (state.tablePage * CONFIG.TABLE_ROWS_PER_PAGE);
+    const endIndex = sourceHistory.length - ((state.tablePage - 1) * CONFIG.TABLE_ROWS_PER_PAGE);
+    const pageData = sourceHistory.slice(Math.max(0, startIndex), Math.max(0, endIndex)).reverse();
     
-    tableBody.innerHTML = recentData.map(data => `
+    tableBody.innerHTML = pageData.map(data => `
         <tr>
             <td>${formatTime(data.timestamp)}</td>
             <td>${formatSensorValue(data.temperature, 'temperature')}</td>
             <td>${formatSensorValue(data.turbidity, 'turbidity')}</td>
         </tr>
     `).join('');
+
+    if (tableInfo) {
+        const from = sourceHistory.length - endIndex + 1;
+        const to = sourceHistory.length - startIndex;
+        tableInfo.textContent = `${from}-${to} dari ${sourceHistory.length}`;
+    }
+
+    if (tablePrevBtn) tablePrevBtn.disabled = state.tablePage >= totalPages;
+    if (tableNextBtn) tableNextBtn.disabled = state.tablePage <= 1;
 }
 
 function updateSystemStatus() {
@@ -360,10 +642,11 @@ function updateConnectionIndicator(connected) {
 function processNewData(data) {
     state.currentData = data;
     state.dataHistory.push(data);
+    state.fullHistory.push(data);
     state.updateCount++;
 
     // Keep only last N data points
-    if (state.dataHistory.length > CONFIG.DATA_HISTORY_LENGTH) {
+    if (state.dataHistory.length > CONFIG.CHART_HISTORY_LENGTH) {
         state.dataHistory.shift();
     }
 
@@ -387,11 +670,16 @@ function processFirebaseHistory(firebasePayload) {
     }
 
     state.firebaseData = firebasePayload;
-    state.dataHistory = normalizedHistory;
+    state.fullHistory = normalizedHistory;
+    state.dataHistory = normalizedHistory.slice(-CONFIG.CHART_HISTORY_LENGTH);
     state.currentData = normalizedHistory[normalizedHistory.length - 1];
     state.updateCount = normalizedHistory.length;
+    state.tablePage = 1;
 
     saveDataToStorage();
+    cleanupInvalidFirebaseHistory(firebasePayload).catch((error) => {
+        console.error('Gagal membersihkan history Firebase yang invalid:', error);
+    });
 
     updateSensorCard('temp', formatSensorValue(state.currentData.temperature, 'temperature'), 'temperature');
     updateSensorCard('turbidity', formatSensorValue(state.currentData.turbidity, 'turbidity'), 'turbidity');
@@ -777,8 +1065,10 @@ document.addEventListener('DOMContentLoaded', function() {
     clearDataBtn.addEventListener('click', function() {
         if (confirm('Hapus semua data sensor? Tindakan ini tidak dapat diulang.')) {
             state.dataHistory = [];
+            state.fullHistory = [];
             state.currentData = null;
             state.updateCount = 0;
+            state.tablePage = 1;
             localStorage.removeItem('sensorHistory');
             
             // Reset UI
@@ -800,6 +1090,35 @@ document.addEventListener('DOMContentLoaded', function() {
         calibrationBtn.addEventListener('click', sendCalibrationCommand);
     }
 
+    attachChartInteractions();
+
+    const resetTempZoomBtn = document.getElementById('resetTempZoomBtn');
+    if (resetTempZoomBtn) {
+        resetTempZoomBtn.addEventListener('click', () => resetChartZoom('temp'));
+    }
+
+    const resetTurbidityZoomBtn = document.getElementById('resetTurbidityZoomBtn');
+    if (resetTurbidityZoomBtn) {
+        resetTurbidityZoomBtn.addEventListener('click', () => resetChartZoom('turbidity'));
+    }
+
+    const tablePrevBtn = document.getElementById('tablePrevBtn');
+    const tableNextBtn = document.getElementById('tableNextBtn');
+    if (tablePrevBtn) {
+        tablePrevBtn.addEventListener('click', function() {
+            state.tablePage = Math.max(1, state.tablePage - 1);
+            updateDataTable();
+        });
+    }
+    if (tableNextBtn) {
+        tableNextBtn.addEventListener('click', function() {
+            const sourceHistory = state.fullHistory.length > 0 ? state.fullHistory : state.dataHistory;
+            const totalPages = Math.max(1, Math.ceil(sourceHistory.length / CONFIG.TABLE_ROWS_PER_PAGE));
+            state.tablePage = Math.min(totalPages, state.tablePage + 1);
+            updateDataTable();
+        });
+    }
+
     // Load data from localStorage
     loadDataFromStorage();
 
@@ -815,7 +1134,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ==================== LOCAL STORAGE ====================
 function saveDataToStorage() {
-    localStorage.setItem('sensorHistory', JSON.stringify(state.dataHistory));
+    localStorage.setItem('sensorHistory', JSON.stringify(state.fullHistory.length ? state.fullHistory : state.dataHistory));
     localStorage.setItem('lastUpdate', new Date().toISOString());
 }
 
@@ -823,12 +1142,14 @@ function loadDataFromStorage() {
     const savedHistory = localStorage.getItem('sensorHistory');
     if (savedHistory) {
         try {
-            state.dataHistory = JSON.parse(savedHistory);
-            console.log(`📦 Loaded ${state.dataHistory.length} data points dari localStorage`);
+            state.fullHistory = JSON.parse(savedHistory);
+            state.dataHistory = state.fullHistory.slice(-CONFIG.CHART_HISTORY_LENGTH);
+            state.tablePage = 1;
+            console.log(`📦 Loaded ${state.fullHistory.length} data points dari localStorage`);
             
             // Update UI with loaded data
-            if (state.dataHistory.length > 0) {
-                const lastData = state.dataHistory[state.dataHistory.length - 1];
+            if (state.fullHistory.length > 0) {
+                const lastData = state.fullHistory[state.fullHistory.length - 1];
                 state.currentData = lastData;
                 
                 updateSensorCard('temp', formatSensorValue(lastData.temperature, 'temperature'), 'temperature');
