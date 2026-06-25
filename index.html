@@ -12,10 +12,13 @@
         <header class="header">
             <div class="header-content">
                 <h1>🔬 Smart BioReactor Dashboard</h1>
-                <div class="connection-status">
-                    <div class="status-indicator" id="statusIndicator"></div>
-                    <span id="statusText">Disconnected</span>
-                    <span class="last-update" id="lastUpdate"></span>
+                <div class="header-actions">
+                    <a class="home-link" href="home.html">← Home</a>
+                    <div class="connection-status">
+                        <div class="status-indicator" id="statusIndicator"></div>
+                        <span id="statusText">Disconnected</span>
+                        <span class="last-update" id="lastUpdate"></span>
+                    </div>
                 </div>
             </div>
         </header>
@@ -35,62 +38,70 @@
                         <span id="tempStatus" class="status-badge">-</span>
                         <span id="tempRange" class="range-text">Min: --, Max: --</span>
                     </div>
-                    <div class="sparkline" id="tempChart"></div>
                 </div>
 
-                <!-- Humidity Card -->
+                <!-- Optical Density Card -->
                 <div class="sensor-card">
                     <div class="sensor-header">
-                        <h3>💧 Kelembaban (Humidity)</h3>
-                        <span class="unit">%</span>
-                    </div>
-                    <div class="sensor-value" id="humidityValue">--</div>
-                    <div class="sensor-status">
-                        <span id="humidityStatus" class="status-badge">-</span>
-                        <span id="humidityRange" class="range-text">Min: --, Max: --</span>
-                    </div>
-                    <div class="sparkline" id="humidityChart"></div>
-                </div>
-
-                <!-- pH Card -->
-                <div class="sensor-card">
-                    <div class="sensor-header">
-                        <h3>⚗️ pH Level</h3>
-                        <span class="unit">pH</span>
-                    </div>
-                    <div class="sensor-value" id="phValue">--</div>
-                    <div class="sensor-status">
-                        <span id="phStatus" class="status-badge">-</span>
-                        <span id="phRange" class="range-text">Min: --, Max: --</span>
-                    </div>
-                    <div class="sparkline" id="phChart"></div>
-                </div>
-
-                <!-- Turbidity Card -->
-                <div class="sensor-card">
-                    <div class="sensor-header">
-                        <h3>🔍 Kekeruhan (Turbidity)</h3>
-                        <span class="unit">NTU</span>
+                        <h3>🔍 Optical Density</h3>
+                        <span class="unit">OD</span>
                     </div>
                     <div class="sensor-value" id="turbidityValue">--</div>
                     <div class="sensor-status">
                         <span id="turbidityStatus" class="status-badge">-</span>
                         <span id="turbidityRange" class="range-text">Min: --, Max: --</span>
                     </div>
-                    <div class="sparkline" id="turbidityChart"></div>
                 </div>
             </div>
 
-            <!-- Row 2: Control & Status -->
+            <!-- Row 2: Sensor Charts -->
+            <div class="chart-grid">
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>Riwayat Suhu</h3>
+                        <div class="chart-tools">
+                            <span class="unit">°C</span>
+                            <button class="chart-tool-btn" id="resetTempZoomBtn" type="button" title="Reset zoom">↺</button>
+                        </div>
+                    </div>
+                    <div class="sparkline" id="tempChart">
+                        <span class="chart-empty">Menunggu data...</span>
+                    </div>
+                    <div class="chart-legend">
+                        <span class="legend-line"></span>
+                        <span>Suhu (°C)</span>
+                    </div>
+                </div>
+
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>Riwayat Optical Density</h3>
+                        <div class="chart-tools">
+                            <span class="unit">OD</span>
+                            <button class="chart-tool-btn" id="resetTurbidityZoomBtn" type="button" title="Reset zoom">↺</button>
+                        </div>
+                    </div>
+                    <div class="sparkline" id="turbidityChart">
+                        <span class="chart-empty">Menunggu data...</span>
+                    </div>
+                    <div class="chart-legend">
+                        <span class="legend-line"></span>
+                        <span>Optical Density (OD)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Row 3: Control & Status -->
             <div class="control-section">
                 <div class="control-panel">
                     <h3>⚙️ Kontrol Sistem</h3>
                     <div class="button-group">
-                        <button class="btn btn-primary" id="connectBtn">🔌 Sambungkan Firebase</button>
                         <button class="btn btn-secondary" id="startSimulationBtn">▶️ Mulai Simulasi</button>
                         <button class="btn btn-secondary" id="stopSimulationBtn">⏹️ Hentikan Simulasi</button>
-                        <button class="btn btn-secondary" id="clearDataBtn">🗑️ Hapus Data</button>
+                        <button class="btn btn-secondary" id="calibrationBtn">🛠️ Kalibrasi Alat</button>
+                        <button class="btn btn-secondary" id="exportDataBtn">📥 Download Data</button>
                     </div>
+                    <div class="calibration-status" id="calibrationStatus" aria-hidden="true"></div>
                 </div>
 
                 <div class="status-panel">
@@ -116,7 +127,7 @@
                 </div>
             </div>
 
-            <!-- Row 3: Data Log -->
+            <!-- Row 4: Data Log -->
             <div class="data-log-section">
                 <h3>📋 Data Log (Terbaru)</h3>
                 <div class="data-table-container">
@@ -125,17 +136,20 @@
                             <tr>
                                 <th>Waktu</th>
                                 <th>Suhu (°C)</th>
-                                <th>Kelembaban (%)</th>
-                                <th>pH</th>
-                                <th>Kekeruhan (NTU)</th>
+                                <th>Optical Density (OD)</th>
                             </tr>
                         </thead>
                         <tbody id="dataTableBody">
                             <tr>
-                                <td colspan="5" class="no-data">Tunggu data masuk...</td>
+                                <td colspan="3" class="no-data">Tunggu data masuk...</td>
                             </tr>
                         </tbody>
                     </table>
+                </div>
+                <div class="table-pagination">
+                    <button class="btn btn-secondary table-page-btn" id="tablePrevBtn" type="button">← Sebelumnya</button>
+                    <span class="table-page-info" id="tablePageInfo">0 data</span>
+                    <button class="btn btn-secondary table-page-btn" id="tableNextBtn" type="button">Berikutnya →</button>
                 </div>
             </div>
         </main>
@@ -146,7 +160,21 @@
         </footer>
     </div>
 
+    <div class="modal-backdrop" id="confirmModal" hidden>
+        <div class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirmModalTitle" aria-describedby="confirmModalMessage">
+            <div class="confirm-modal__icon">🛠️</div>
+            <h4 id="confirmModalTitle">Konfirmasi Kalibrasi</h4>
+            <p id="confirmModalMessage">Kirim perintah kalibrasi ke alat sekarang?</p>
+            <div class="confirm-modal__actions">
+                <button class="btn btn-secondary confirm-modal__cancel" id="confirmModalCancel" type="button">Batal</button>
+                <button class="btn btn-primary confirm-modal__confirm" id="confirmModalConfirm" type="button">Ya, kalibrasi</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     <script src="js/script.js"></script>
 </body>
 </html>

@@ -9,14 +9,16 @@
 // ⚙️ FIREBASE CONFIGURATION
 // ═══════════════════════════════════════════════════════════════════════
 
-const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyD0ZF1X7hw2plcHHduXRpVlji4F4STVu9s",
-  authDomain: "smart-bior.firebaseapp.com",
-  databaseURL: "https://smart-bior-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "smart-bior",
-  storageBucket: "smart-bior.firebasestorage.app",
-  messagingSenderId: "656488250692",
-  appId: "1:656488250692:web:8620bb7ca4ea321643ab11"
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyDzUepyqix_E8mKzNSc8ijMxF3yXDYLBF4",
+  authDomain: "smart-bior-6dac6.firebaseapp.com",
+  databaseURL: "https://smart-bior-6dac6-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "smart-bior-6dac6",
+  storageBucket: "smart-bior-6dac6.firebasestorage.app",
+  messagingSenderId: "996524440588",
+  appId: "1:996524440588:web:7d5842c0d4869201398229",
+  measurementId: "G-HV429BVJX2"
 };
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -109,6 +111,7 @@ let growthChart = null;
 let chartLabels = [...FALLBACK.chartLabels];
 let chartOD = [...FALLBACK.chartOD];
 let usingFirebase = false;
+let firebaseDb = null;
 let prevOD = null;
 let currentMode = 'real'; // 'real' or 'simulasi'
 let notificationHistory = []; // Track untuk notifikasi dinamis
@@ -134,10 +137,10 @@ function initFirebase() {
 
   try {
     firebase.initializeApp(FIREBASE_CONFIG);
-    const db = firebase.database();
+    firebaseDb = firebase.database();
 
     // Listener 1: Data terbaru (real-time update)
-    db.ref('/smart-bior/latest').on(
+    firebaseDb.ref('/smart-bior/latest').on(
       'value',
       (snap) => {
         const d = snap.val();
@@ -165,7 +168,7 @@ function initFirebase() {
     );
 
     // Listener 2: Riwayat pengukuran (48 data terakhir)
-    db.ref('/smart-bior/history')
+    firebaseDb.ref('/smart-bior/history')
       .orderByKey()
       .limitToLast(MAX_HISTORY)
       .on('value', (snap) => {
@@ -182,7 +185,7 @@ function initFirebase() {
       });
 
     // Listener 3: System info (cycle count)
-    db.ref('/smart-bior/system').on('value', (snap) => {
+    firebaseDb.ref('/smart-bior/system').on('value', (snap) => {
       const sys = snap.val();
       if (!sys) return;
       if (sys.cycle_count !== undefined) {
@@ -191,7 +194,7 @@ function initFirebase() {
     });
 
     // Listener 4: Notifikasi dari history events
-    db.ref('/smart-bior/history')
+    firebaseDb.ref('/smart-bior/history')
       .orderByKey()
       .limitToLast(4)
       .on('value', (snap) => {
@@ -207,6 +210,73 @@ function initFirebase() {
     setConnectionStatus(false);
     loadFallback();
   }
+}
+
+function setCalibrationStatus(text, tone = 'neutral') {
+  const statusEl = document.getElementById('calibrationStatus');
+  if (!statusEl) return;
+
+  statusEl.textContent = text;
+  statusEl.dataset.tone = tone;
+}
+
+function sendCalibrationCommand() {
+  if (!firebaseDb) {
+    setCalibrationStatus('Firebase belum siap', 'danger');
+    return;
+  }
+
+  const type = document.getElementById('calibrationType').value;
+  const valueRaw = document.getElementById('calibrationValue').value;
+  const note = document.getElementById('calibrationNote').value.trim();
+  const value = valueRaw === '' ? null : Number(valueRaw);
+
+  if (valueRaw !== '' && Number.isNaN(value)) {
+    setCalibrationStatus('Nilai referensi tidak valid', 'danger');
+    return;
+  }
+
+  const payload = {
+    action: type,
+    value: value,
+    note: note || null,
+    requestedAt: Date.now(),
+    requestedBy: 'dashboard',
+    status: 'pending'
+  };
+
+  setCalibrationStatus('Mengirim perintah...', 'neutral');
+
+  firebaseDb.ref('/smart-bior/commands/calibration').set(payload)
+    .then(() => {
+      setCalibrationStatus('Perintah kalibrasi terkirim', 'success');
+    })
+    .catch((err) => {
+      console.error('[Calibration] Gagal kirim:', err);
+      setCalibrationStatus('Gagal mengirim kalibrasi', 'danger');
+    });
+}
+
+function refreshCalibrationStatus() {
+  if (!firebaseDb) {
+    setCalibrationStatus('Firebase belum siap', 'danger');
+    return;
+  }
+
+  firebaseDb.ref('/smart-bior/commands/calibration/status').once('value')
+    .then((snap) => {
+      const val = snap.val();
+      if (!val) {
+        setCalibrationStatus('Belum ada status', 'neutral');
+        return;
+      }
+      const label = String(val).replace(/_/g, ' ');
+      setCalibrationStatus(`Status: ${label}`, val === 'done' ? 'success' : val === 'failed' ? 'danger' : 'neutral');
+    })
+    .catch((err) => {
+      console.error('[Calibration] Refresh gagal:', err);
+      setCalibrationStatus('Gagal ambil status', 'danger');
+    });
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -915,4 +985,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Connect to Firebase (fallback jika config belum ada)
   initFirebase();
+
+  const sendCalibrationBtn = document.getElementById('sendCalibrationBtn');
+  const refreshCalibrationBtn = document.getElementById('refreshCalibrationBtn');
+  if (sendCalibrationBtn) sendCalibrationBtn.addEventListener('click', sendCalibrationCommand);
+  if (refreshCalibrationBtn) refreshCalibrationBtn.addEventListener('click', refreshCalibrationStatus);
 });
