@@ -555,6 +555,8 @@ body {
     font-size: 0.9rem;
     flex: 1;
     min-width: 180px;
+    position: relative;
+    overflow: hidden;
 }
 
 .btn-primary {
@@ -564,9 +566,9 @@ body {
 }
 
 .btn-primary:hover {
-    background: var(--green-dark);
+    background: #1f5f40;
     transform: translateY(-2px);
-    box-shadow: 0 10px 24px rgba(37, 111, 74, 0.24);
+    box-shadow: 0 10px 24px rgba(37, 111, 74, 0.28);
 }
 
 .btn-secondary {
@@ -576,8 +578,11 @@ body {
 }
 
 .btn-secondary:hover {
-    background: #dcefe3;
+    background: #cfe8d7;
+    border-color: #9fcbaf;
+    color: var(--green-dark);
     transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(31, 51, 40, 0.08);
 }
 
 .btn:active {

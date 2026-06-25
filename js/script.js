@@ -1149,20 +1149,6 @@ function connectToFirebase() {
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🚀 Smart BioReactor Dashboard Loaded');
 
-    // Connect Firebase Button
-    const connectBtn = document.getElementById('connectBtn');
-    connectBtn.addEventListener('click', function() {
-        connectBtn.disabled = true;
-        connectBtn.style.opacity = '0.5';
-
-        if (connectToFirebase()) {
-            alert('✓ Terhubung ke Firebase!');
-        }
-
-        connectBtn.disabled = false;
-        connectBtn.style.opacity = '1';
-    });
-
     // Start Simulation Button
     const startSimulationBtn = document.getElementById('startSimulationBtn');
     startSimulationBtn.addEventListener('click', function() {
@@ -1191,31 +1177,6 @@ document.addEventListener('DOMContentLoaded', function() {
         
         console.log('⏹️ Simulasi dihentikan');
         updateSystemStatus();
-    });
-
-    // Clear Data Button
-    const clearDataBtn = document.getElementById('clearDataBtn');
-    clearDataBtn.addEventListener('click', function() {
-        if (confirm('Hapus semua data sensor? Tindakan ini tidak dapat diulang.')) {
-            state.dataHistory = [];
-            state.fullHistory = [];
-            state.currentData = null;
-            state.updateCount = 0;
-            state.tablePage = 1;
-            localStorage.removeItem('sensorHistory');
-            
-            // Reset UI
-            ['temp', 'turbidity'].forEach(sensorName => {
-                const valueElement = document.getElementById(`${sensorName}Value`);
-                if (valueElement) valueElement.textContent = '--';
-            });
-            
-            resetCharts();
-            updateDataTable();
-            updateSystemStatus();
-            
-            console.log('🗑️ Data dihapus');
-        }
     });
 
     const calibrationBtn = document.getElementById('calibrationBtn');
