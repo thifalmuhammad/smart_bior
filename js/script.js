@@ -25,6 +25,8 @@ const state = {
     firebaseDb: null,
     updateCount: 0,
     tablePage: 1,
+    dateFilterStart: '',
+    dateFilterEnd: '',
     chartView: {
         temp: { start: 0, end: 1 },
         turbidity: { start: 0, end: 1 }
@@ -140,6 +142,19 @@ function formatChartTimestampWithDate(date) {
     return `${year}-${month}-${day} ${hours}:${minutes}`;
 }
 
+function getDateKey(date) {
+    date = normalizeDate(date);
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function compareDateKeys(a, b) {
+    return String(a).localeCompare(String(b));
+}
+
 function normalizeTimestamp(timestamp) {
     const numericTimestamp = Number(timestamp);
 
@@ -197,6 +212,21 @@ function normalizeFirebaseHistory(firebasePayload) {
         .filter(Boolean)
         .sort((a, b) => a.timestamp - b.timestamp)
         ;
+}
+
+function getFilteredHistory() {
+    const sourceHistory = state.fullHistory.length > 0 ? state.fullHistory : state.dataHistory;
+    const start = state.dateFilterStart || state.dateFilterEnd;
+    const end = state.dateFilterEnd || state.dateFilterStart;
+    if (!start && !end) return sourceHistory;
+
+    return sourceHistory.filter((entry) => {
+        const key = getDateKey(entry.timestamp);
+        if (!key) return false;
+        if (start && compareDateKeys(key, start) < 0) return false;
+        if (end && compareDateKeys(key, end) > 0) return false;
+        return true;
+    });
 }
 
 function collectInvalidHistoryPaths(firebasePayload) {
@@ -300,7 +330,7 @@ function updateSensorCard(sensorName, value, sensorType) {
     }
 
     // Create sparkline chart
-    const chartHistorySource = state.fullHistory.length > 0 ? state.fullHistory : state.dataHistory;
+    const chartHistorySource = getFilteredHistory();
     const chartSeries = chartHistorySource
         .map((entry) => ({
             value: Number(entry?.[sensorType]),
@@ -340,6 +370,7 @@ function createSparkline(elementId, series, chartKey = null) {
     const visibleEnd = Math.max(visibleStart + 2, Math.min(totalPoints, Math.ceil(viewState.end * totalPoints)));
     const visibleSeries = series.slice(visibleStart, visibleEnd);
     if (visibleSeries.length < 2) return;
+    container._chartSeries = visibleSeries;
 
     // Find min/max
     const values = visibleSeries.map((point) => point.value);
@@ -364,6 +395,14 @@ function createSparkline(elementId, series, chartKey = null) {
     path.setAttribute('stroke-linejoin', 'round');
 
     svg.appendChild(path);
+
+    const hitArea = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    hitArea.setAttribute('x', 0);
+    hitArea.setAttribute('y', 0);
+    hitArea.setAttribute('width', baseWidth);
+    hitArea.setAttribute('height', baseHeight);
+    hitArea.setAttribute('fill', 'transparent');
+    svg.appendChild(hitArea);
 
     if (isZoomed) {
         const tickCount = Math.min(4, visibleSeries.length);
@@ -424,6 +463,44 @@ function createSparkline(elementId, series, chartKey = null) {
     }
 
     container.appendChild(svg);
+    if (!container.dataset.tooltipBound) {
+        container.dataset.tooltipBound = 'true';
+        const tooltip = document.createElement('div');
+        tooltip.className = 'chart-tooltip';
+        tooltip.hidden = true;
+        document.body.appendChild(tooltip);
+
+        const updateTooltip = (clientX, clientY) => {
+            const seriesData = container._chartSeries || [];
+            if (!seriesData.length) return;
+            const rect = container.getBoundingClientRect();
+            const x = clientX - rect.left;
+            const y = clientY - rect.top;
+            const plotWidth = baseWidth - padding.left - padding.right;
+            const ratio = Math.max(0, Math.min(1, (x - padding.left) / plotWidth));
+            const index = Math.round(ratio * (seriesData.length - 1));
+            const point = seriesData[Math.max(0, Math.min(seriesData.length - 1, index))];
+            if (!point) return;
+
+            tooltip.hidden = false;
+            tooltip.style.left = `${Math.max(12, Math.min(window.innerWidth - 12, clientX + 16))}px`;
+            tooltip.style.top = `${Math.max(12, Math.min(window.innerHeight - 12, clientY - 12))}px`;
+            tooltip.innerHTML = `
+                <strong>${chartKey === 'temp' ? 'Suhu' : 'OD'}</strong>
+                Nilai: ${point.value.toFixed(chartKey === 'temp' ? 2 : 4)}<br>
+                Waktu: ${formatTime(point.timestamp)}
+            `;
+        };
+
+        const hideTooltip = () => {
+            tooltip.hidden = true;
+        };
+
+        container.addEventListener('pointermove', (event) => {
+            updateTooltip(event.clientX, event.clientY);
+        });
+        container.addEventListener('pointerleave', hideTooltip);
+    }
 
     if (chartKey && state.chartDrag[chartKey]) {
         const dragState = state.chartDrag[chartKey];
@@ -546,8 +623,11 @@ function resetChartZoom(chartKey) {
 }
 
 function updateChartsOnly() {
-    const sourceHistory = state.fullHistory.length > 0 ? state.fullHistory : state.dataHistory;
-    if (!sourceHistory.length) return;
+    const sourceHistory = getFilteredHistory();
+    if (!sourceHistory.length) {
+        resetCharts();
+        return;
+    }
 
     ['temp', 'turbidity'].forEach((sensorType) => {
         const chartId = `${sensorType}Chart`;
@@ -566,7 +646,7 @@ function updateDataTable() {
     const tableInfo = document.getElementById('tablePageInfo');
     const tablePrevBtn = document.getElementById('tablePrevBtn');
     const tableNextBtn = document.getElementById('tableNextBtn');
-    const sourceHistory = state.fullHistory.length > 0 ? state.fullHistory : state.dataHistory;
+    const sourceHistory = getFilteredHistory();
     
     if (sourceHistory.length === 0) {
         tableBody.innerHTML = '<tr><td colspan="3" class="no-data">Tunggu data masuk...</td></tr>';
@@ -593,11 +673,24 @@ function updateDataTable() {
     if (tableInfo) {
         const from = sourceHistory.length - endIndex + 1;
         const to = sourceHistory.length - startIndex;
-        tableInfo.textContent = `${from}-${to} dari ${sourceHistory.length}`;
+        tableInfo.textContent = `Halaman ${state.tablePage} dari ${totalPages} · sample ${from}-${to} dari ${sourceHistory.length}`;
     }
 
-    if (tablePrevBtn) tablePrevBtn.disabled = state.tablePage >= totalPages;
-    if (tableNextBtn) tableNextBtn.disabled = state.tablePage <= 1;
+    if (tablePrevBtn) tablePrevBtn.disabled = state.tablePage <= 1;
+    if (tableNextBtn) tableNextBtn.disabled = state.tablePage >= totalPages;
+}
+
+function goToTablePage(direction) {
+    const sourceHistory = getFilteredHistory();
+    const totalPages = Math.max(1, Math.ceil(sourceHistory.length / CONFIG.TABLE_ROWS_PER_PAGE));
+
+    if (direction === 'older') {
+        state.tablePage = Math.min(totalPages, state.tablePage + 1);
+    } else if (direction === 'newer') {
+        state.tablePage = Math.max(1, state.tablePage - 1);
+    }
+
+    updateDataTable();
 }
 
 function updateSystemStatus() {
@@ -612,7 +705,8 @@ function updateSystemStatus() {
 
     // Data Points Count
     const dataPointsCount = document.getElementById('dataPointsCount');
-    dataPointsCount.textContent = state.dataHistory.length;
+    const totalSamples = getFilteredHistory().length || state.fullHistory.length || state.dataHistory.length;
+    dataPointsCount.textContent = totalSamples;
 
     // Update Interval
     const updateInterval = document.getElementById('updateInterval');
@@ -1090,6 +1184,44 @@ document.addEventListener('DOMContentLoaded', function() {
         calibrationBtn.addEventListener('click', sendCalibrationCommand);
     }
 
+    const dateFilterStart = document.getElementById('dateFilterStart');
+    const dateFilterEnd = document.getElementById('dateFilterEnd');
+    const dateFilterReset = document.getElementById('dateFilterReset');
+    const applyDateFilter = () => {
+        state.dateFilterStart = dateFilterStart ? dateFilterStart.value : '';
+        state.dateFilterEnd = dateFilterEnd ? dateFilterEnd.value : '';
+        state.tablePage = 1;
+        state.chartView.temp = { start: 0, end: 1 };
+        state.chartView.turbidity = { start: 0, end: 1 };
+        state.chartDrag.temp = null;
+        state.chartDrag.turbidity = null;
+        updateChartsOnly();
+        updateDataTable();
+    };
+
+    if (dateFilterStart) {
+        dateFilterStart.addEventListener('change', applyDateFilter);
+    }
+    if (dateFilterEnd) {
+        dateFilterEnd.addEventListener('change', applyDateFilter);
+    }
+
+    if (dateFilterReset) {
+        dateFilterReset.addEventListener('click', function() {
+            state.dateFilterStart = '';
+            state.dateFilterEnd = '';
+            state.tablePage = 1;
+            if (dateFilterStart) dateFilterStart.value = '';
+            if (dateFilterEnd) dateFilterEnd.value = '';
+            state.chartView.temp = { start: 0, end: 1 };
+            state.chartView.turbidity = { start: 0, end: 1 };
+            state.chartDrag.temp = null;
+            state.chartDrag.turbidity = null;
+            updateChartsOnly();
+            updateDataTable();
+        });
+    }
+
     attachChartInteractions();
 
     const resetTempZoomBtn = document.getElementById('resetTempZoomBtn');
@@ -1106,16 +1238,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const tableNextBtn = document.getElementById('tableNextBtn');
     if (tablePrevBtn) {
         tablePrevBtn.addEventListener('click', function() {
-            state.tablePage = Math.max(1, state.tablePage - 1);
-            updateDataTable();
+            goToTablePage('newer');
         });
     }
     if (tableNextBtn) {
         tableNextBtn.addEventListener('click', function() {
-            const sourceHistory = state.fullHistory.length > 0 ? state.fullHistory : state.dataHistory;
-            const totalPages = Math.max(1, Math.ceil(sourceHistory.length / CONFIG.TABLE_ROWS_PER_PAGE));
-            state.tablePage = Math.min(totalPages, state.tablePage + 1);
-            updateDataTable();
+            goToTablePage('older');
         });
     }
 

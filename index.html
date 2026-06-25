@@ -25,6 +25,16 @@
 
         <!-- Main Dashboard -->
         <main class="dashboard">
+            <div class="filter-bar">
+                <div class="filter-group">
+                    <label for="dateFilterStart" class="filter-label">Tanggal</label>
+                    <input type="date" id="dateFilterStart" class="date-filter">
+                    <span class="filter-separator">sampai</span>
+                    <input type="date" id="dateFilterEnd" class="date-filter">
+                    <button class="btn btn-secondary filter-reset" id="dateFilterReset" type="button">Reset</button>
+                </div>
+            </div>
+
             <!-- Row 1: Sensor Data Cards -->
             <div class="sensor-grid">
                 <!-- Temperature Card -->
