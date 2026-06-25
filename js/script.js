@@ -25,8 +25,6 @@ const state = {
     firebaseDb: null,
     updateCount: 0,
     tablePage: 1,
-    dateFilterStart: '',
-    dateFilterEnd: '',
     chartView: {
         temp: { start: 0, end: 1 },
         turbidity: { start: 0, end: 1 }
@@ -142,19 +140,6 @@ function formatChartTimestampWithDate(date) {
     return `${year}-${month}-${day} ${hours}:${minutes}`;
 }
 
-function getDateKey(date) {
-    date = normalizeDate(date);
-    if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-}
-
-function compareDateKeys(a, b) {
-    return String(a).localeCompare(String(b));
-}
-
 function normalizeTimestamp(timestamp) {
     const numericTimestamp = Number(timestamp);
 
@@ -215,18 +200,7 @@ function normalizeFirebaseHistory(firebasePayload) {
 }
 
 function getFilteredHistory() {
-    const sourceHistory = state.fullHistory.length > 0 ? state.fullHistory : state.dataHistory;
-    const start = state.dateFilterStart || state.dateFilterEnd;
-    const end = state.dateFilterEnd || state.dateFilterStart;
-    if (!start && !end) return sourceHistory;
-
-    return sourceHistory.filter((entry) => {
-        const key = getDateKey(entry.timestamp);
-        if (!key) return false;
-        if (start && compareDateKeys(key, start) < 0) return false;
-        if (end && compareDateKeys(key, end) > 0) return false;
-        return true;
-    });
+    return state.fullHistory.length > 0 ? state.fullHistory : state.dataHistory;
 }
 
 function collectInvalidHistoryPaths(firebasePayload) {
@@ -691,6 +665,71 @@ function goToTablePage(direction) {
     }
 
     updateDataTable();
+}
+
+function escapeHtml(text) {
+    return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function exportDataToXls() {
+    const sourceHistory = state.fullHistory.length > 0 ? state.fullHistory : state.dataHistory;
+
+    if (!sourceHistory.length) {
+        alert('Tidak ada data untuk diekspor.');
+        return;
+    }
+
+    const rows = sourceHistory.map((row, index) => `
+        <tr>
+            <td>${index + 1}</td>
+            <td>${escapeHtml(formatTime(row.timestamp))}</td>
+            <td>${escapeHtml(formatSensorValue(row.temperature, 'temperature'))}</td>
+            <td>${escapeHtml(formatSensorValue(row.turbidity, 'turbidity'))}</td>
+        </tr>
+    `).join('');
+
+    const html = `
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; }
+                th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+                th { background: #e8f4ec; }
+            </style>
+        </head>
+        <body>
+            <table>
+                <thead>
+                    <tr>
+                        <th>No</th>
+                        <th>Timestamp</th>
+                        <th>Suhu (°C)</th>
+                        <th>Optical Density (OD)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows}
+                </tbody>
+            </table>
+        </body>
+        </html>
+    `;
+
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `smart-bioreactor-${new Date().toISOString().slice(0, 10)}.xls`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
 }
 
 function updateSystemStatus() {
@@ -1184,42 +1223,9 @@ document.addEventListener('DOMContentLoaded', function() {
         calibrationBtn.addEventListener('click', sendCalibrationCommand);
     }
 
-    const dateFilterStart = document.getElementById('dateFilterStart');
-    const dateFilterEnd = document.getElementById('dateFilterEnd');
-    const dateFilterReset = document.getElementById('dateFilterReset');
-    const applyDateFilter = () => {
-        state.dateFilterStart = dateFilterStart ? dateFilterStart.value : '';
-        state.dateFilterEnd = dateFilterEnd ? dateFilterEnd.value : '';
-        state.tablePage = 1;
-        state.chartView.temp = { start: 0, end: 1 };
-        state.chartView.turbidity = { start: 0, end: 1 };
-        state.chartDrag.temp = null;
-        state.chartDrag.turbidity = null;
-        updateChartsOnly();
-        updateDataTable();
-    };
-
-    if (dateFilterStart) {
-        dateFilterStart.addEventListener('change', applyDateFilter);
-    }
-    if (dateFilterEnd) {
-        dateFilterEnd.addEventListener('change', applyDateFilter);
-    }
-
-    if (dateFilterReset) {
-        dateFilterReset.addEventListener('click', function() {
-            state.dateFilterStart = '';
-            state.dateFilterEnd = '';
-            state.tablePage = 1;
-            if (dateFilterStart) dateFilterStart.value = '';
-            if (dateFilterEnd) dateFilterEnd.value = '';
-            state.chartView.temp = { start: 0, end: 1 };
-            state.chartView.turbidity = { start: 0, end: 1 };
-            state.chartDrag.temp = null;
-            state.chartDrag.turbidity = null;
-            updateChartsOnly();
-            updateDataTable();
-        });
+    const exportDataBtn = document.getElementById('exportDataBtn');
+    if (exportDataBtn) {
+        exportDataBtn.addEventListener('click', exportDataToXls);
     }
 
     attachChartInteractions();
